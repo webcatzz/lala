@@ -1,0 +1,30 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_FragUniform
+{
+    float4 color_mult;
+};
+
+struct VertMain_out
+{
+    float2 out_var_TEXCOORD [[user(locn0)]];
+    float4 gl_Position [[position]];
+};
+
+struct VertMain_in
+{
+    float2 in_var_POSITION [[attribute(0)]];
+    float2 in_var_TEXCOORD [[attribute(1)]];
+};
+
+vertex VertMain_out VertMain(VertMain_in in [[stage_in]])
+{
+    VertMain_out out = {};
+    out.gl_Position = float4(in.in_var_POSITION, 0.0, 1.0);
+    out.out_var_TEXCOORD = in.in_var_TEXCOORD;
+    return out;
+}
+

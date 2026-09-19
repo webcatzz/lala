@@ -1,0 +1,4 @@
+/.zig-cache
+/res/spritesheet.aseprite
+/zig-out
+.DS_Store

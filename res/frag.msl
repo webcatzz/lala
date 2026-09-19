@@ -1,0 +1,27 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_FragUniform
+{
+    float4 color_mult;
+};
+
+struct FragMain_out
+{
+    float4 out_var_SV_TARGET [[color(0)]];
+};
+
+struct FragMain_in
+{
+    float2 in_var_TEXCOORD [[user(locn0)]];
+};
+
+fragment FragMain_out FragMain(FragMain_in in [[stage_in]], constant type_FragUniform& FragUniform [[buffer(0)]], texture2d<float> tex [[texture(0)]], sampler tex_sampler [[sampler(0)]])
+{
+    FragMain_out out = {};
+    out.out_var_SV_TARGET = tex.sample(tex_sampler, in.in_var_TEXCOORD) * FragUniform.color_mult;
+    return out;
+}
+

@@ -189,13 +189,13 @@ pub const Sprite = enum(u8) {
             return self.rect;
         }
 
-        /// Returns the region occupied by the given sprite, in pixels.
-        pub fn pixel_region(self: Info) math.Rect(u8) {
+        /// Returns the margins of the area occupied by the given sprite, in pixels.
+        pub fn pixel_margins(self: Info) math.Margins(u8) {
             return .{
-                .left = self.x,
-                .top = self.y,
-                .right = self.x + self.w,
-                .bottom = self.y + self.h,
+                .left = self.rect.x,
+                .right = self.rect.x + self.rect.w,
+                .top = self.rect.y,
+                .bottom = self.rect.y + self.rect.h,
             };
         }
     };
@@ -208,11 +208,6 @@ pub const Sprite = enum(u8) {
     const pebble_base = 64;
     const pebble_rect_x = 160;
     const pebble_rect_y = 0;
-
-    /// Returns the rectangle occupied by the sprite.
-    pub fn rect(self: Sprite) math.Rect(u8) {
-        return info.get(self);
-    }
 
     /// Returns the sprite corresponding to the given character in the "pebble"
     /// font, if any.

@@ -229,7 +229,7 @@ pub const Sprite = enum(u8) {
 ///
 /// The spritesheet is owned by the caller and should be freed by calling
 /// `deinit`.
-pub fn init(io: std.Io, gpa: std.mem.Allocator) !Spritesheet {
+pub fn init(io: std.Io, gpa: std.mem.Allocator, gpu_device: *sdl.SDL_GPUDevice) !Spritesheet {
     const pixel_byte_size = 4;
     const scanline_byte_size = width * pixel_byte_size + 1;
 
@@ -372,8 +372,6 @@ pub fn init(io: std.Io, gpa: std.mem.Allocator) !Spritesheet {
 
     // Creates GPU texture
 
-    const gpu_device = try Renderer.global_gpu_device();
-
     const texture = sdl.SDL_CreateGPUTexture(gpu_device, &.{
         .type = sdl.SDL_GPU_TEXTURETYPE_2D,
         .format = sdl.SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
@@ -443,11 +441,8 @@ pub fn init(io: std.Io, gpa: std.mem.Allocator) !Spritesheet {
 /// Frees the spritesheet.
 ///
 /// The spritesheet should not be used after calling this function.
-pub fn deinit(self: *Spritesheet) void {
-    sdl.SDL_ReleaseGPUTexture(Renderer.global_gpu_device() catch {
-        std.log.err("Failed to free spritesheet", .{});
-        return;
-    }, self._gpu_texture);
+pub fn deinit(self: *Spritesheet, gpu_device: *sdl.SDL_GPUDevice) void {
+    sdl.SDL_ReleaseGPUTexture(gpu_device, self._gpu_texture);
     self.* = undefined;
 }
 

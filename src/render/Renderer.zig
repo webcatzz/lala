@@ -19,6 +19,8 @@ spritesheet: Spritesheet,
 /// A multiplier applied to rendering coordinates.
 scale: math.Vec2(f32) = .splat(1),
 
+/// The SDL GPU context.
+_gpu_device: *sdl.SDL_GPUDevice,
 /// The SDL GPU graphics pipeline used to render.
 _gpu_pipeline: *sdl.SDL_GPUGraphicsPipeline,
 /// An SDL GPU sampler used to sample vertex textures.
@@ -41,7 +43,9 @@ const target_texture_format = sdl.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
 ///
 /// The renderer is owned by the caller and must be freed by calling `deinit`.
 pub fn init(gpa: std.mem.Allocator) !Renderer {
-    const gpu_device = try global_gpu_device();
+    const gpu_device = sdl.SDL_CreateGPUDevice(sdl.SDL_GPU_SHADERFORMAT_MSL, builtin.mode == .Debug, null) orelse
+        return error.Sdl;
+    errdefer sdl.SDL_DestroyGPUDevice(gpu_device);
 
     var command_queue: CommandQueue = .{ ._list = try .initCapacity(gpa, 512) };
     errdefer command_queue._list.deinit(gpa);
@@ -52,8 +56,8 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
     var io_single_threaded: std.Io.Threaded = .init_single_threaded;
     const io = io_single_threaded.io();
 
-    var spritesheet = try Spritesheet.init(io, gpa);
-    errdefer spritesheet.deinit();
+    var spritesheet = try Spritesheet.init(io, gpa, gpu_device);
+    errdefer spritesheet.deinit(gpu_device);
 
     const file_buf = try gpa.alloc(u8, 1024);
     defer gpa.free(file_buf);
@@ -140,6 +144,7 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
         .vertex_queue = vertex_queue,
         .command_queue = command_queue,
         .spritesheet = spritesheet,
+        ._gpu_device = gpu_device,
         ._gpu_pipeline = gpu_pipeline,
         ._gpu_sampler = gpu_sampler,
         ._gpu_buffer = gpu_buffer,
@@ -151,14 +156,14 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
 ///
 /// The renderer should not be used after calling this function.
 pub fn deinit(self: *Renderer, gpa: std.mem.Allocator) void {
-    const gpu_device = global_gpu_device() catch return;
     self.command_queue._list.deinit(gpa);
     self.vertex_queue.deinit(gpa);
-    self.spritesheet.deinit();
-    sdl.SDL_ReleaseGPUTransferBuffer(gpu_device, self._gpu_transfer_buffer);
-    sdl.SDL_ReleaseGPUBuffer(gpu_device, self._gpu_buffer);
-    sdl.SDL_ReleaseGPUSampler(gpu_device, self._gpu_sampler);
-    sdl.SDL_ReleaseGPUGraphicsPipeline(gpu_device, self._gpu_pipeline);
+    self.spritesheet.deinit(self._gpu_device);
+    sdl.SDL_ReleaseGPUTransferBuffer(self._gpu_device, self._gpu_transfer_buffer);
+    sdl.SDL_ReleaseGPUBuffer(self._gpu_device, self._gpu_buffer);
+    sdl.SDL_ReleaseGPUSampler(self._gpu_device, self._gpu_sampler);
+    sdl.SDL_ReleaseGPUGraphicsPipeline(self._gpu_device, self._gpu_pipeline);
+    sdl.SDL_DestroyGPUDevice(self._gpu_device);
     self.* = undefined;
 }
 
@@ -223,80 +228,6 @@ pub fn drawSpriteStretch(self: *Renderer, sprite: Spritesheet.Sprite, rect: math
     const sprite_info = Spritesheet.Sprite.info.get(sprite);
     try self.drawRegion(sprite_info.pixel_rect(), rect);
 }
-
-// /// Repeats the given sprite to fill the given rectangle.
-// pub fn drawSpriteRepeat(self: *Renderer, sprite: Spritesheet.Sprite, rect: math.Rect(f32)) !void {
-//     const sprite_info = Spritesheet.Sprite.info.get(sprite);
-
-//     const corners = (math.Rect(f32){
-//         .x = rect.x,
-//         .y = rect.y,
-//         .w = sprite_info.x,
-//         .h = sprite_info.y,
-//     }).corners();
-
-//     var uv_coords = sprite_info.uv_coords();
-
-//     const end_uv: math.Vec2(f32) = .{
-//         .x = rect.w / sprite_info.x,
-//         .y = rect.h / sprite_info.y,
-//     };
-
-//     const rect_vertices: [4]Vertex = .{
-//         .construct(self.mapPos(corners.tl), .{ .x = 0, .y = 0 }),
-//         .construct(self.mapPos(corners.tr), .{ .x = end_uv.x, .y = 0 }),
-//         .construct(self.mapPos(corners.bl), .{ .x = 0, .y = end_uv.y }),
-//         .construct(self.mapPos(corners.br), .{ .x = end_uv.x, .y = end_uv.y }),
-//     };
-
-//     const tri_vertices: [6]Vertex = .{
-//         rect_vertices[0],
-//         rect_vertices[2],
-//         rect_vertices[3],
-//         rect_vertices[0],
-//         rect_vertices[3],
-//         rect_vertices[1],
-//     };
-
-//     try self.vertex_queue.appendSliceBounded(&tri_vertices);
-//     try self.command_queue.drawVertices(6);
-// }
-
-// /// Draws the given sprite with its top-left corner at the given position, using
-// /// the given UV pixel rect.
-// pub fn drawSpriteUv(
-//     self: *Renderer,
-//     sprite: Spritesheet.Sprite,
-//     pos: math.Vec2(f32),
-//     uv_rect: math.Rect(u16),
-// ) !void {
-//     const corners = (math.Rect(f32){
-//         .x = pos.x,
-//         .y = pos.y,
-//         .w = uv_rect.w,
-//         .h = uv_rect.h,
-//     }).corners();
-
-//     const size = sprite.size();
-//     const rect_vertices: [4]Vertex = .{
-//         .construct(self.mapPos(corners.tl), .{ .x = uv_rect.x / size.x, .y = uv_rect.y / size.y }),
-//         .construct(self.mapPos(corners.tr), .{ .x = (@as(f32, uv_rect.x) + uv_rect.w) / size.x, .y = uv_rect.y / size.y }),
-//         .construct(self.mapPos(corners.bl), .{ .x = uv_rect.x / size.x, .y = (@as(f32, uv_rect.y) + uv_rect.h) / size.y }),
-//         .construct(self.mapPos(corners.br), .{ .x = (@as(f32, uv_rect.x) + uv_rect.w) / size.x, .y = (@as(f32, uv_rect.y) + uv_rect.h) / size.y }),
-//     };
-
-//     const tri_vertices: [6]Vertex = .{
-//         rect_vertices[0],
-//         rect_vertices[2],
-//         rect_vertices[3],
-//         rect_vertices[0],
-//         rect_vertices[3],
-//         rect_vertices[1],
-//     };
-
-//     try self.vertex_queue.appendSliceBounded(&tri_vertices);
-//     try self.command_queue.drawVertices(6);
-// }
 
 pub fn drawSprite9Patch(
     self: *Renderer,
@@ -547,9 +478,7 @@ pub fn print(self: *Renderer, text: []const u8, pos: math.Vec2(f32), color: math
 ///
 /// Assumes the window was previously claimed by the renderer by calling `claimWindow`.
 pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
-    const gpu_device = try global_gpu_device();
-
-    const command_buffer = sdl.SDL_AcquireGPUCommandBuffer(gpu_device) orelse
+    const command_buffer = sdl.SDL_AcquireGPUCommandBuffer(self._gpu_device) orelse
         return error.Sdl;
     defer _ = sdl.SDL_SubmitGPUCommandBuffer(command_buffer);
 
@@ -563,11 +492,11 @@ pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
         defer sdl.SDL_EndGPUCopyPass(copy_pass);
 
         const transfer_ptr: [*]Vertex = @ptrCast(@alignCast(
-            sdl.SDL_MapGPUTransferBuffer(gpu_device, self._gpu_transfer_buffer, false) orelse
+            sdl.SDL_MapGPUTransferBuffer(self._gpu_device, self._gpu_transfer_buffer, false) orelse
                 return error.Sdl,
         ));
         @memcpy(transfer_ptr, self.vertex_queue.items);
-        sdl.SDL_UnmapGPUTransferBuffer(gpu_device, self._gpu_transfer_buffer);
+        sdl.SDL_UnmapGPUTransferBuffer(self._gpu_device, self._gpu_transfer_buffer);
 
         sdl.SDL_UploadToGPUBuffer(copy_pass, &.{
             .transfer_buffer = self._gpu_transfer_buffer,
@@ -619,18 +548,17 @@ pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
 /// Creates a swapchain structure for the given window.
 ///
 /// The swapchain is owned by the caller and should be freed by calling `releaseWindow`.
-pub fn claimWindow(window: *sdl.SDL_Window) !void {
-    const gpu_device = try global_gpu_device();
-    if (!sdl.SDL_ClaimWindowForGPUDevice(gpu_device, window))
+pub fn claimWindow(self: *Renderer, window: *sdl.SDL_Window) !void {
+    if (!sdl.SDL_ClaimWindowForGPUDevice(self._gpu_device, window))
         return error.Sdl;
-    std.debug.assert(sdl.SDL_GetGPUSwapchainTextureFormat(gpu_device, window) == target_texture_format);
+    std.debug.assert(sdl.SDL_GetGPUSwapchainTextureFormat(self._gpu_device, window) == target_texture_format);
 }
 
 /// Destroys the swapchain structure for the given window.
 ///
 /// Assumes the window was previously claimed by the renderer by calling `claimWindow`.
-pub fn releaseWindow(window: *sdl.SDL_Window) void {
-    sdl.SDL_ReleaseWindowFromGPUDevice(global_gpu_device() catch return, window);
+pub fn releaseWindow(self: *Renderer, window: *sdl.SDL_Window) void {
+    sdl.SDL_ReleaseWindowFromGPUDevice(self._gpu_device, window);
 }
 
 /// Converts a screen position to normalized device coordinates.
@@ -723,34 +651,3 @@ pub const Vertex = extern struct {
         };
     }
 };
-
-// Global GPU device
-
-/// The global SDL GPU device.
-var _global_gpu_device: ?*sdl.SDL_GPUDevice = null;
-
-/// Returns the global SDL GPU device.
-///
-/// Initializes the device if it is not initialized. The device should
-/// eventually be deinitialized by calling `deinit_gpu_device`.
-pub fn global_gpu_device() !*sdl.SDL_GPUDevice {
-    if (_global_gpu_device == null)
-        _global_gpu_device = sdl.SDL_CreateGPUDevice(
-            sdl.SDL_GPU_SHADERFORMAT_MSL,
-            builtin.mode == .Debug,
-            null,
-        ) orelse return error.Sdl;
-    return _global_gpu_device orelse unreachable;
-}
-
-/// Destroys the global SDL GPU device.
-///
-/// Most rendering functions will attempt to access the global GPU device and
-/// will re-initialize it even if it was deinitialized. To be safe, ensure this
-/// function is called after any usage of rendering functions.
-///
-/// The global GPU device should not be used after calling this function and
-/// before calling `gpu_device` again.
-pub fn deinit_global_gpu_device() void {
-    sdl.SDL_DestroyGPUDevice(_global_gpu_device);
-}

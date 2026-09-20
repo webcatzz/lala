@@ -4,8 +4,7 @@
 //! throughout the lifetime of the program, rather than loading and unloading
 //! smaller sprites and requiring additional GPU binding state changes.
 //!
-//! Individual sprites are identified by their `Sprite` variant, which provides
-//! functions for accessing their spritesheet coordinates.
+//! Individual sprites are identified by a unique `Sprite` variant.
 
 const err = @import("../err.zig");
 const math = @import("../math.zig");

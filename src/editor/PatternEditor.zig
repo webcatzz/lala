@@ -127,11 +127,6 @@ pub fn draw(self: PatternEditor, editor: *Editor) !void {
     for (pattern.notes) |note| {
         // TODO filter out-of-viewport notes
         try renderer.drawSprite9Patch(.note, .{
-            .left = 1,
-            .right = 1,
-            .top = 1,
-            .bottom = 1,
-        }, .{
             .x = self.xFromTick(note.interval.first_tick),
             .y = self.yFromPitch(note.pitch),
             .w = @as(f32, @floatFromInt(note.interval.duration())) * tick_width,

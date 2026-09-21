@@ -1,5 +1,17 @@
 const std = @import("std");
 
+pub const SpriteInfo = struct {
+    name: []const u8,
+    x: u8,
+    y: u8,
+    w: u8,
+    h: u8,
+    border_left: u8,
+    border_right: u8,
+    border_top: u8,
+    border_bottom: u8,
+};
+
 /// Builds sprite data.
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
@@ -7,12 +19,11 @@ pub fn main(init: std.process.Init) !void {
 
     var file_buf: [64]u8 = undefined;
 
-    var slice_info: std.ArrayList(struct { name: []const u8, x: u8, y: u8, w: u8, h: u8 }) =
-        try .initCapacity(gpa, 8);
+    var sprite_info: std.ArrayList(SpriteInfo) = try .initCapacity(gpa, 8);
     defer {
-        for (slice_info.items) |item|
+        for (sprite_info.items) |item|
             gpa.free(item.name);
-        slice_info.deinit(gpa);
+        sprite_info.deinit(gpa);
     }
 
     // Reads Aseprite file
@@ -63,31 +74,31 @@ pub fn main(init: std.process.Init) !void {
                         const slice_w: u8 = @intCast(std.mem.readInt(u32, buf[8..12], .little));
                         const slice_h: u8 = @intCast(std.mem.readInt(u32, buf[12..16], .little));
 
-                        var slice_center_x: i32 = 0;
-                        var slice_center_y: i32 = 0;
-                        var slice_center_w: u32 = 0;
-                        var slice_center_h: u32 = 0;
+                        var slice_center_x: u8 = 0;
+                        var slice_center_y: u8 = 0;
+                        var slice_center_w: u8 = slice_w;
+                        var slice_center_h: u8 = slice_h;
                         if (slice_key_flags & 0b1 != 0) {
                             try reader.readSliceAll(buf[0..16]);
-                            slice_center_x = std.mem.readInt(i32, buf[0..4], .little);
-                            slice_center_y = std.mem.readInt(i32, buf[4..8], .little);
-                            slice_center_w = std.mem.readInt(u32, buf[8..12], .little);
-                            slice_center_h = std.mem.readInt(u32, buf[12..16], .little);
+                            slice_center_x = @intCast(std.mem.readInt(i32, buf[0..4], .little));
+                            slice_center_y = @intCast(std.mem.readInt(i32, buf[4..8], .little));
+                            slice_center_w = @intCast(std.mem.readInt(u32, buf[8..12], .little));
+                            slice_center_h = @intCast(std.mem.readInt(u32, buf[12..16], .little));
                         }
 
                         if (slice_key_flags & 0b10 != 0)
                             try reader.discardAll(8);
 
-                        try slice_info.append(gpa, .{
+                        try sprite_info.append(gpa, .{
                             .name = slice_key_name,
                             .x = slice_x,
                             .y = slice_y,
                             .w = slice_w,
                             .h = slice_h,
-                            // .center_x = slice_center_x,
-                            // .center_y = slice_center_y,
-                            // .center_w = slice_center_w,
-                            // .center_h = slice_center_h,
+                            .border_left = slice_center_x,
+                            .border_right = slice_w - (slice_center_x + slice_center_w),
+                            .border_top = slice_center_y,
+                            .border_bottom = slice_h - (slice_center_y + slice_center_h),
                         });
                     }
                 },
@@ -112,14 +123,14 @@ pub fn main(init: std.process.Init) !void {
 
     try writer.writeAll(".{\n");
 
-    for (slice_info.items) |item|
-        try writer.print("    .{s} = .{{ .rect = .{{ .x = {}, .y = {}, .w = {}, .h = {} }} }},\n", .{
-            item.name,
-            item.x,
-            item.y,
-            item.w,
-            item.h,
-        });
+    for (sprite_info.items) |item|
+        try writer.print(
+            \\    .{s} = .{{
+            \\        .rect = .{{ .x = {}, .y = {}, .w = {}, .h = {} }},
+            \\        .border = .{{ .left = {}, .right = {}, .top = {}, .bottom = {} }},
+            \\    }},
+            \\
+        , .{ item.name, item.x, item.y, item.w, item.h, item.border_left, item.border_right, item.border_top, item.border_bottom });
 
     try writer.writeAll("}\n");
     try writer.flush();

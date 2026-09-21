@@ -4,7 +4,7 @@ const sdl = @import("sdl");
 const std = @import("std");
 
 /// An area defined by the offsets of its sides.
-pub fn Margins(comptime T: type) type {
+pub fn Sides(comptime T: type) type {
     return struct {
         left: T,
         right: T,

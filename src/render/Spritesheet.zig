@@ -19,9 +19,9 @@ _gpu_texture: *sdl.SDL_GPUTexture,
 const Spritesheet = @This();
 
 /// The width of the spritesheet, in pixels.
-pub const width = 256;
+pub const width = 255;
 /// The height of the spritesheet, in pixels.
-pub const height = 256;
+pub const height = 255;
 /// The total area of the spritesheet, in pixels.
 pub const area = width * height;
 
@@ -180,23 +180,13 @@ pub const Sprite = enum(u8) {
 
     /// Sprite information.
     pub const Info = struct {
-        /// The region occupied by the sprite, in pixels.
+        /// The rectangle occupied by the sprite, in pixels.
         rect: math.Rect(u8),
-
-        /// Returns the rectangle occupied by the given sprite, in pixels.
-        pub fn pixel_rect(self: Info) math.Rect(u8) {
-            return self.rect;
-        }
-
-        /// Returns the margins of the area occupied by the given sprite, in pixels.
-        pub fn pixel_margins(self: Info) math.Margins(u8) {
-            return .{
-                .left = self.rect.x,
-                .right = self.rect.x + self.rect.w,
-                .top = self.rect.y,
-                .bottom = self.rect.y + self.rect.h,
-            };
-        }
+        /// The widths of the borders of the sprite.
+        ///
+        /// This is used for nine-patch sprites. For non-nine-patch sprites, the
+        /// border values are undefined.
+        border: math.Sides(u8),
     };
 
     /// Information for each sprite.

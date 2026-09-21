@@ -178,16 +178,16 @@ pub fn clear(self: *Renderer) void {
 /// Draws the given region of the spritesheet to the given rectangle.
 pub fn drawRegion(
     self: *Renderer,
-    src: math.Margins(u8),
+    src: math.Rect(u8),
     dst: math.Rect(f32),
 ) !void {
     const corners = dst.corners();
 
     const rect_vertices: [4]Vertex = .{
-        .construct(self.mapPos(corners.tl), .{ .x = @as(f32, src.left) / Spritesheet.width, .y = @as(f32, src.top) / Spritesheet.height }),
-        .construct(self.mapPos(corners.tr), .{ .x = @as(f32, src.right) / Spritesheet.width, .y = @as(f32, src.top) / Spritesheet.height }),
-        .construct(self.mapPos(corners.bl), .{ .x = @as(f32, src.left) / Spritesheet.width, .y = @as(f32, src.bottom) / Spritesheet.height }),
-        .construct(self.mapPos(corners.br), .{ .x = @as(f32, src.right) / Spritesheet.width, .y = @as(f32, src.bottom) / Spritesheet.height }),
+        .construct(self.mapPos(corners.tl), .{ .x = @as(f32, src.x) / Spritesheet.width, .y = @as(f32, src.y) / Spritesheet.height }),
+        .construct(self.mapPos(corners.tr), .{ .x = @as(f32, src.x + src.w) / Spritesheet.width, .y = @as(f32, src.y) / Spritesheet.height }),
+        .construct(self.mapPos(corners.bl), .{ .x = @as(f32, src.x) / Spritesheet.width, .y = @as(f32, src.y + src.h) / Spritesheet.height }),
+        .construct(self.mapPos(corners.br), .{ .x = @as(f32, src.x + src.w) / Spritesheet.width, .y = @as(f32, src.y + src.h) / Spritesheet.height }),
     };
 
     try self.vertex_queue.appendSliceBounded(&.{
@@ -204,46 +204,46 @@ pub fn drawRegion(
 /// Draws the given region of the spritesheet to the given rectangle, as a nine-patch.
 pub fn drawRegion9Patch(
     self: *Renderer,
-    src: math.Margins(u8),
-    border: math.Margins(u8),
+    src: math.Rect(u8),
+    border: math.Sides(u8),
     dst: math.Rect(f32),
 ) !void {
     try self.drawRegion(
-        .{ .left = src.left, .right = src.left + border.left, .top = src.top, .bottom = src.top + border.top },
+        .{ .x = src.x, .y = src.y, .w = border.left, .h = border.top },
         .{ .x = dst.x, .y = dst.y, .w = border.left, .h = border.top },
     );
     try self.drawRegion(
-        .{ .left = src.left + border.left, .right = src.right - border.right, .top = src.top, .bottom = src.top + border.top },
+        .{ .x = src.x + border.left, .y = src.y, .w = src.w - border.left - border.right, .h = border.top },
         .{ .x = dst.x + border.left, .y = dst.y, .w = dst.w - border.left - border.right, .h = border.top },
     );
     try self.drawRegion(
-        .{ .left = src.right - border.right, .right = src.right, .top = src.top, .bottom = src.top + border.top },
+        .{ .x = src.x + src.w - border.right, .y = src.y, .w = border.right, .h = border.top },
         .{ .x = dst.x + dst.w - border.right, .y = dst.y, .w = border.right, .h = border.top },
     );
 
     try self.drawRegion(
-        .{ .left = src.left, .right = src.left + border.left, .top = src.top + border.top, .bottom = src.bottom - border.bottom },
+        .{ .x = src.x, .y = src.y + border.top, .w = border.left, .h = src.h - border.top - border.bottom },
         .{ .x = dst.x, .y = dst.y + border.top, .w = border.left, .h = dst.h - border.top - border.bottom },
     );
     try self.drawRegion(
-        .{ .left = src.left + border.left, .right = src.right - border.right, .top = src.top + border.top, .bottom = src.bottom - border.bottom },
+        .{ .x = src.x + border.left, .y = src.y + border.top, .w = src.w - border.left - border.right, .h = src.h - border.top - border.bottom },
         .{ .x = dst.x + border.left, .y = dst.y + border.top, .w = dst.w - border.left - border.right, .h = dst.h - border.top - border.bottom },
     );
     try self.drawRegion(
-        .{ .left = src.right - border.right, .right = src.right, .top = src.top + border.top, .bottom = src.bottom - border.bottom },
+        .{ .x = src.x + src.w - border.right, .y = src.y + border.top, .w = border.right, .h = src.h - border.top - border.bottom },
         .{ .x = dst.x + dst.w - border.right, .y = dst.y + border.top, .w = border.right, .h = dst.h - border.top - border.bottom },
     );
 
     try self.drawRegion(
-        .{ .left = src.left, .right = src.left + border.left, .top = src.bottom - border.bottom, .bottom = src.bottom },
+        .{ .x = src.x, .y = src.y + src.h - border.bottom, .w = border.left, .h = border.bottom },
         .{ .x = dst.x, .y = dst.y + dst.h - border.bottom, .w = border.left, .h = border.bottom },
     );
     try self.drawRegion(
-        .{ .left = src.left + border.left, .right = src.right - border.right, .top = src.bottom - border.bottom, .bottom = src.bottom },
+        .{ .x = src.x + border.left, .y = src.y + src.h - border.bottom, .w = src.w - border.left - border.right, .h = border.bottom },
         .{ .x = dst.x + border.left, .y = dst.y + dst.h - border.bottom, .w = dst.w - border.left - border.right, .h = border.bottom },
     );
     try self.drawRegion(
-        .{ .left = src.right - border.right, .right = src.right, .top = src.bottom - border.bottom, .bottom = src.bottom },
+        .{ .x = src.x + src.w - border.right, .y = src.y + src.h - border.bottom, .w = border.right, .h = border.bottom },
         .{ .x = dst.x + dst.w - border.right, .y = dst.y + dst.h - border.bottom, .w = border.right, .h = border.bottom },
     );
 }
@@ -251,7 +251,7 @@ pub fn drawRegion9Patch(
 /// Draws the given sprite with its top-left corner at the given position.
 pub fn drawSprite(self: *Renderer, sprite: Spritesheet.Sprite, pos: math.Vec2(f32)) !void {
     const sprite_info = Spritesheet.Sprite.info.get(sprite);
-    try self.drawRegion(sprite_info.pixel_margins(), .{
+    try self.drawRegion(sprite_info.rect, .{
         .x = pos.x,
         .y = pos.y,
         .w = sprite_info.rect.w,
@@ -262,13 +262,13 @@ pub fn drawSprite(self: *Renderer, sprite: Spritesheet.Sprite, pos: math.Vec2(f3
 /// Draws the given sprite stretched to fill the given rectangle.
 pub fn drawSpriteStretch(self: *Renderer, sprite: Spritesheet.Sprite, rect: math.Rect(f32)) !void {
     const sprite_info = Spritesheet.Sprite.info.get(sprite);
-    try self.drawRegion(sprite_info.pixel_margins(), rect);
+    try self.drawRegion(sprite_info.rect, rect);
 }
 
 /// Draws the given sprite as a nine-patch filling the given rectangle.
-pub fn drawSprite9Patch(self: *Renderer, sprite: Spritesheet.Sprite, border: math.Margins(u8), dst: math.Rect(f32)) !void {
+pub fn drawSprite9Patch(self: *Renderer, sprite: Spritesheet.Sprite, rect: math.Rect(f32)) !void {
     const sprite_info = Spritesheet.Sprite.info.get(sprite);
-    try self.drawRegion9Patch(sprite_info.pixel_margins(), border, dst);
+    try self.drawRegion9Patch(sprite_info.rect, sprite_info.border, rect);
 }
 
 pub fn print(self: *Renderer, text: []const u8, pos: math.Vec2(f32), color: math.Color(u8)) !void {

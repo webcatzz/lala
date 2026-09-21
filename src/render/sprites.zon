@@ -1,77 +1,302 @@
 .{
-    .section = .{ .rect = .{ .x = 14, .y = 7, .w = 7, .h = 6 } },
-    .pebble_underscore = .{ .rect = .{ .x = 177, .y = 29, .w = 6, .h = 6 } },
-    .pebble_ampersand = .{ .rect = .{ .x = 171, .y = 29, .w = 6, .h = 6 } },
-    .pebble_dollar = .{ .rect = .{ .x = 165, .y = 29, .w = 6, .h = 6 } },
-    .pebble_backtick = .{ .rect = .{ .x = 159, .y = 29, .w = 6, .h = 6 } },
-    .pebble_apostrophe = .{ .rect = .{ .x = 249, .y = 22, .w = 6, .h = 6 } },
-    .pebble_quote = .{ .rect = .{ .x = 243, .y = 22, .w = 6, .h = 6 } },
-    .pebble_pipe = .{ .rect = .{ .x = 237, .y = 22, .w = 6, .h = 6 } },
-    .pebble_backslash = .{ .rect = .{ .x = 231, .y = 22, .w = 6, .h = 6 } },
-    .pebble_slash = .{ .rect = .{ .x = 225, .y = 22, .w = 6, .h = 6 } },
-    .pebble_eq = .{ .rect = .{ .x = 219, .y = 22, .w = 6, .h = 6 } },
-    .pebble_gt = .{ .rect = .{ .x = 213, .y = 22, .w = 6, .h = 6 } },
-    .pebble_lt = .{ .rect = .{ .x = 207, .y = 22, .w = 6, .h = 6 } },
-    .pebble_caret = .{ .rect = .{ .x = 201, .y = 22, .w = 6, .h = 6 } },
-    .pebble_tilde = .{ .rect = .{ .x = 195, .y = 22, .w = 6, .h = 6 } },
-    .pebble_at = .{ .rect = .{ .x = 189, .y = 22, .w = 6, .h = 6 } },
-    .pebble_hash = .{ .rect = .{ .x = 183, .y = 22, .w = 6, .h = 6 } },
-    .pebble_percent = .{ .rect = .{ .x = 177, .y = 22, .w = 6, .h = 6 } },
-    .pebble_star = .{ .rect = .{ .x = 171, .y = 22, .w = 6, .h = 6 } },
-    .pebble_hyphen = .{ .rect = .{ .x = 165, .y = 22, .w = 6, .h = 6 } },
-    .pebble_plus = .{ .rect = .{ .x = 159, .y = 22, .w = 6, .h = 6 } },
-    .pebble_rbrace = .{ .rect = .{ .x = 249, .y = 15, .w = 6, .h = 6 } },
-    .pebble_lbrace = .{ .rect = .{ .x = 243, .y = 15, .w = 6, .h = 6 } },
-    .pebble_rbracket = .{ .rect = .{ .x = 237, .y = 15, .w = 6, .h = 6 } },
-    .pebble_lbracket = .{ .rect = .{ .x = 231, .y = 15, .w = 6, .h = 6 } },
-    .pebble_rparen = .{ .rect = .{ .x = 225, .y = 15, .w = 6, .h = 6 } },
-    .pebble_lparen = .{ .rect = .{ .x = 219, .y = 15, .w = 6, .h = 6 } },
-    .pebble_9 = .{ .rect = .{ .x = 213, .y = 15, .w = 6, .h = 6 } },
-    .pebble_8 = .{ .rect = .{ .x = 207, .y = 15, .w = 6, .h = 6 } },
-    .pebble_7 = .{ .rect = .{ .x = 201, .y = 15, .w = 6, .h = 6 } },
-    .pebble_6 = .{ .rect = .{ .x = 195, .y = 15, .w = 6, .h = 6 } },
-    .pebble_5 = .{ .rect = .{ .x = 189, .y = 15, .w = 6, .h = 6 } },
-    .pebble_4 = .{ .rect = .{ .x = 183, .y = 15, .w = 6, .h = 6 } },
-    .pebble_3 = .{ .rect = .{ .x = 177, .y = 15, .w = 6, .h = 6 } },
-    .pebble_2 = .{ .rect = .{ .x = 171, .y = 15, .w = 6, .h = 6 } },
-    .pebble_1 = .{ .rect = .{ .x = 165, .y = 15, .w = 6, .h = 6 } },
-    .pebble_0 = .{ .rect = .{ .x = 159, .y = 15, .w = 6, .h = 6 } },
-    .pebble_question_mark = .{ .rect = .{ .x = 249, .y = 8, .w = 2, .h = 6 } },
-    .pebble_exclamation_mark = .{ .rect = .{ .x = 243, .y = 8, .w = 1, .h = 6 } },
-    .pebble_semicolon = .{ .rect = .{ .x = 237, .y = 8, .w = 1, .h = 6 } },
-    .pebble_colon = .{ .rect = .{ .x = 231, .y = 8, .w = 1, .h = 6 } },
-    .pebble_comma = .{ .rect = .{ .x = 225, .y = 8, .w = 1, .h = 6 } },
-    .pebble_period = .{ .rect = .{ .x = 219, .y = 8, .w = 1, .h = 6 } },
-    .pebble_z = .{ .rect = .{ .x = 213, .y = 8, .w = 2, .h = 6 } },
-    .pebble_y = .{ .rect = .{ .x = 207, .y = 8, .w = 3, .h = 6 } },
-    .pebble_x = .{ .rect = .{ .x = 201, .y = 8, .w = 3, .h = 6 } },
-    .pebble_w = .{ .rect = .{ .x = 195, .y = 8, .w = 5, .h = 6 } },
-    .pebble_v = .{ .rect = .{ .x = 189, .y = 8, .w = 3, .h = 6 } },
-    .pebble_u = .{ .rect = .{ .x = 183, .y = 8, .w = 3, .h = 6 } },
-    .pebble_t = .{ .rect = .{ .x = 177, .y = 8, .w = 3, .h = 6 } },
-    .pebble_s = .{ .rect = .{ .x = 171, .y = 8, .w = 2, .h = 6 } },
-    .pebble_r = .{ .rect = .{ .x = 165, .y = 8, .w = 3, .h = 6 } },
-    .pebble_q = .{ .rect = .{ .x = 159, .y = 8, .w = 3, .h = 6 } },
-    .pebble_p = .{ .rect = .{ .x = 249, .y = 1, .w = 3, .h = 6 } },
-    .pebble_o = .{ .rect = .{ .x = 243, .y = 1, .w = 3, .h = 6 } },
-    .pebble_n = .{ .rect = .{ .x = 237, .y = 1, .w = 3, .h = 6 } },
-    .pebble_m = .{ .rect = .{ .x = 231, .y = 1, .w = 5, .h = 6 } },
-    .pebble_l = .{ .rect = .{ .x = 225, .y = 1, .w = 3, .h = 6 } },
-    .pebble_k = .{ .rect = .{ .x = 219, .y = 1, .w = 3, .h = 6 } },
-    .pebble_j = .{ .rect = .{ .x = 213, .y = 1, .w = 2, .h = 6 } },
-    .pebble_i = .{ .rect = .{ .x = 207, .y = 1, .w = 1, .h = 6 } },
-    .pebble_h = .{ .rect = .{ .x = 201, .y = 1, .w = 3, .h = 6 } },
-    .pebble_g = .{ .rect = .{ .x = 195, .y = 1, .w = 3, .h = 6 } },
-    .pebble_f = .{ .rect = .{ .x = 189, .y = 1, .w = 2, .h = 6 } },
-    .pebble_e = .{ .rect = .{ .x = 183, .y = 1, .w = 3, .h = 6 } },
-    .pebble_d = .{ .rect = .{ .x = 177, .y = 1, .w = 3, .h = 6 } },
-    .pebble_c = .{ .rect = .{ .x = 171, .y = 1, .w = 3, .h = 6 } },
-    .pebble_b = .{ .rect = .{ .x = 165, .y = 1, .w = 3, .h = 6 } },
-    .pebble_a = .{ .rect = .{ .x = 159, .y = 1, .w = 3, .h = 6 } },
-    .piano_key_black = .{ .rect = .{ .x = 3, .y = 13, .w = 10, .h = 5 } },
-    .piano_key_white = .{ .rect = .{ .x = 3, .y = 7, .w = 10, .h = 5 } },
-    .line_hover = .{ .rect = .{ .x = 9, .y = 1, .w = 2, .h = 5 } },
-    .line = .{ .rect = .{ .x = 7, .y = 1, .w = 1, .h = 5 } },
-    .note = .{ .rect = .{ .x = 3, .y = 1, .w = 3, .h = 5 } },
-    .blank = .{ .rect = .{ .x = 1, .y = 1, .w = 1, .h = 1 } },
+    .section = .{
+        .rect = .{ .x = 14, .y = 7, .w = 7, .h = 6 },
+        .border = .{ .left = 2, .right = 2, .top = 2, .bottom = 2 },
+    },
+    .pebble_underscore = .{
+        .rect = .{ .x = 176, .y = 29, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_ampersand = .{
+        .rect = .{ .x = 170, .y = 29, .w = 4, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_dollar = .{
+        .rect = .{ .x = 164, .y = 29, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_backtick = .{
+        .rect = .{ .x = 158, .y = 29, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_apostrophe = .{
+        .rect = .{ .x = 248, .y = 22, .w = 1, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_quote = .{
+        .rect = .{ .x = 242, .y = 22, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_pipe = .{
+        .rect = .{ .x = 236, .y = 22, .w = 1, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_backslash = .{
+        .rect = .{ .x = 230, .y = 22, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_slash = .{
+        .rect = .{ .x = 224, .y = 22, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_eq = .{
+        .rect = .{ .x = 218, .y = 22, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_gt = .{
+        .rect = .{ .x = 212, .y = 22, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_lt = .{
+        .rect = .{ .x = 206, .y = 22, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_caret = .{
+        .rect = .{ .x = 200, .y = 22, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_tilde = .{
+        .rect = .{ .x = 194, .y = 22, .w = 4, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_at = .{
+        .rect = .{ .x = 188, .y = 22, .w = 4, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_hash = .{
+        .rect = .{ .x = 182, .y = 22, .w = 4, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_percent = .{
+        .rect = .{ .x = 176, .y = 22, .w = 4, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_star = .{
+        .rect = .{ .x = 170, .y = 22, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_hyphen = .{
+        .rect = .{ .x = 164, .y = 22, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_plus = .{
+        .rect = .{ .x = 158, .y = 22, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_rbrace = .{
+        .rect = .{ .x = 248, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_lbrace = .{
+        .rect = .{ .x = 242, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_rbracket = .{
+        .rect = .{ .x = 236, .y = 15, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_lbracket = .{
+        .rect = .{ .x = 230, .y = 15, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_rparen = .{
+        .rect = .{ .x = 224, .y = 15, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_lparen = .{
+        .rect = .{ .x = 218, .y = 15, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_9 = .{
+        .rect = .{ .x = 212, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_8 = .{
+        .rect = .{ .x = 206, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_7 = .{
+        .rect = .{ .x = 200, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_6 = .{
+        .rect = .{ .x = 194, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_5 = .{
+        .rect = .{ .x = 188, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_4 = .{
+        .rect = .{ .x = 182, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_3 = .{
+        .rect = .{ .x = 176, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_2 = .{
+        .rect = .{ .x = 170, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_1 = .{
+        .rect = .{ .x = 164, .y = 15, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_0 = .{
+        .rect = .{ .x = 158, .y = 15, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_question_mark = .{
+        .rect = .{ .x = 248, .y = 8, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_exclamation_mark = .{
+        .rect = .{ .x = 242, .y = 8, .w = 1, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_semicolon = .{
+        .rect = .{ .x = 236, .y = 8, .w = 1, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_colon = .{
+        .rect = .{ .x = 230, .y = 8, .w = 1, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_comma = .{
+        .rect = .{ .x = 224, .y = 8, .w = 1, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_period = .{
+        .rect = .{ .x = 218, .y = 8, .w = 1, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_z = .{
+        .rect = .{ .x = 212, .y = 8, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_y = .{
+        .rect = .{ .x = 206, .y = 8, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_x = .{
+        .rect = .{ .x = 200, .y = 8, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_w = .{
+        .rect = .{ .x = 194, .y = 8, .w = 5, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_v = .{
+        .rect = .{ .x = 188, .y = 8, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_u = .{
+        .rect = .{ .x = 182, .y = 8, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_t = .{
+        .rect = .{ .x = 176, .y = 8, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_s = .{
+        .rect = .{ .x = 170, .y = 8, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_r = .{
+        .rect = .{ .x = 164, .y = 8, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_q = .{
+        .rect = .{ .x = 158, .y = 8, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_p = .{
+        .rect = .{ .x = 248, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_o = .{
+        .rect = .{ .x = 242, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_n = .{
+        .rect = .{ .x = 236, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_m = .{
+        .rect = .{ .x = 230, .y = 1, .w = 5, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_l = .{
+        .rect = .{ .x = 224, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_k = .{
+        .rect = .{ .x = 218, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_j = .{
+        .rect = .{ .x = 212, .y = 1, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_i = .{
+        .rect = .{ .x = 206, .y = 1, .w = 1, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_h = .{
+        .rect = .{ .x = 200, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_g = .{
+        .rect = .{ .x = 194, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_f = .{
+        .rect = .{ .x = 188, .y = 1, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_e = .{
+        .rect = .{ .x = 182, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_d = .{
+        .rect = .{ .x = 176, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_c = .{
+        .rect = .{ .x = 170, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_b = .{
+        .rect = .{ .x = 164, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .pebble_a = .{
+        .rect = .{ .x = 158, .y = 1, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .piano_key_black = .{
+        .rect = .{ .x = 3, .y = 13, .w = 10, .h = 5 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .piano_key_white = .{
+        .rect = .{ .x = 3, .y = 7, .w = 10, .h = 5 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .line_hover = .{
+        .rect = .{ .x = 9, .y = 1, .w = 2, .h = 5 },
+        .border = .{ .left = 0, .right = 0, .top = 1, .bottom = 0 },
+    },
+    .line = .{
+        .rect = .{ .x = 7, .y = 1, .w = 1, .h = 5 },
+        .border = .{ .left = 0, .right = 0, .top = 1, .bottom = 0 },
+    },
+    .note = .{
+        .rect = .{ .x = 3, .y = 1, .w = 3, .h = 3 },
+        .border = .{ .left = 1, .right = 1, .top = 1, .bottom = 1 },
+    },
+    .blank = .{
+        .rect = .{ .x = 1, .y = 1, .w = 1, .h = 1 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
 }

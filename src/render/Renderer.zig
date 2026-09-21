@@ -180,6 +180,11 @@ pub fn clear(self: *Renderer) void {
     self.command_queue.clear();
 }
 
+/// Sets the color multiplier applied to subsequent draw operations.
+pub fn switchColor(self: *Renderer, color: math.Color(u8)) !void {
+    return self.command_queue.switchColorAlloc(self.gpa, color);
+}
+
 /// Draws the given region of the spritesheet to the given rectangle.
 pub fn drawRegion(
     self: *Renderer,

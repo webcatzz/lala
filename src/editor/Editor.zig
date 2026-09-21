@@ -70,7 +70,7 @@ pub fn init(gpa: std.mem.Allocator, io: std.Io) !Editor {
     errdefer sdl.SDL_DestroyWindow(window);
 
     var renderer = try Renderer.init(gpa);
-    errdefer renderer.deinit(gpa);
+    errdefer renderer.deinit();
 
     try renderer.claimWindow(window);
     errdefer renderer.releaseWindow(window);
@@ -178,7 +178,7 @@ pub fn deinit(self: *Editor) void {
     sdl.SDL_DestroyAudioStream(self._audio_stream);
     sdl.SDL_CloseAudioDevice(self._audio_device);
     self.renderer.releaseWindow(self._window);
-    self.renderer.deinit(self.gpa);
+    self.renderer.deinit();
     sdl.SDL_DestroyWindow(self._window);
 }
 

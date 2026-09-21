@@ -1,7 +1,9 @@
-//! A renderer.
+//! Handles rendering and manages GPU resources.
 //!
-//! The renderer is used to queue up rendering commands. Once all commands for a
-//! frame have been queued, call `render` to render them to a window.
+//! A render happens in two passes:
+//!
+//! 1. Draw operations are queued up.
+//! 2. `render` is called to render them to a window.
 
 const builtin = @import("builtin");
 const math = @import("../math.zig");
@@ -19,6 +21,8 @@ spritesheet: Spritesheet,
 /// A multiplier applied to rendering coordinates.
 scale: math.Vec2(f32) = .splat(1),
 
+/// An allocator for commands and vertices.
+gpa: std.mem.Allocator,
 /// The SDL GPU context.
 _gpu_device: *sdl.SDL_GPUDevice,
 /// The SDL GPU graphics pipeline used to render.
@@ -50,7 +54,7 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
     var command_queue: CommandQueue = .{ ._list = try .initCapacity(gpa, 512) };
     errdefer command_queue._list.deinit(gpa);
 
-    var vertex_queue: std.ArrayList(Vertex) = try .initCapacity(gpa, 512);
+    var vertex_queue: std.ArrayList(Vertex) = try .initCapacity(gpa, 1024);
     errdefer vertex_queue.deinit(gpa);
 
     var io_single_threaded: std.Io.Threaded = .init_single_threaded;
@@ -144,6 +148,7 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
         .vertex_queue = vertex_queue,
         .command_queue = command_queue,
         .spritesheet = spritesheet,
+        .gpa = gpa,
         ._gpu_device = gpu_device,
         ._gpu_pipeline = gpu_pipeline,
         ._gpu_sampler = gpu_sampler,
@@ -155,9 +160,9 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
 /// Frees the renderer.
 ///
 /// The renderer should not be used after calling this function.
-pub fn deinit(self: *Renderer, gpa: std.mem.Allocator) void {
-    self.command_queue._list.deinit(gpa);
-    self.vertex_queue.deinit(gpa);
+pub fn deinit(self: *Renderer) void {
+    self.command_queue._list.deinit(self.gpa);
+    self.vertex_queue.deinit(self.gpa);
     self.spritesheet.deinit(self._gpu_device);
     sdl.SDL_ReleaseGPUTransferBuffer(self._gpu_device, self._gpu_transfer_buffer);
     sdl.SDL_ReleaseGPUBuffer(self._gpu_device, self._gpu_buffer);
@@ -190,7 +195,7 @@ pub fn drawRegion(
         .construct(self.mapPos(corners.br), .{ .x = @as(f32, src.x + src.w) / Spritesheet.width, .y = @as(f32, src.y + src.h) / Spritesheet.height }),
     };
 
-    try self.vertex_queue.appendSliceBounded(&.{
+    try self.vertex_queue.appendSlice(self.gpa, &.{
         rect_vertices[0],
         rect_vertices[2],
         rect_vertices[3],
@@ -198,7 +203,7 @@ pub fn drawRegion(
         rect_vertices[3],
         rect_vertices[1],
     });
-    try self.command_queue.drawVertices(6);
+    try self.command_queue.drawVerticesAlloc(self.gpa, 6);
 }
 
 /// Draws the given region of the spritesheet to the given rectangle, as a nine-patch.
@@ -275,7 +280,7 @@ pub fn print(self: *Renderer, text: []const u8, pos: math.Vec2(f32), color: math
     var x = pos.x;
     var y = pos.y;
 
-    try self.command_queue.switchColor(color);
+    try self.command_queue.switchColorAlloc(self.gpa, color);
 
     for (text) |char|
         switch (char) {
@@ -290,7 +295,7 @@ pub fn print(self: *Renderer, text: []const u8, pos: math.Vec2(f32), color: math
             },
         };
 
-    try self.command_queue.switchColor(.white);
+    try self.command_queue.switchColorAlloc(self.gpa, .white);
 }
 
 // /// Draws a line between the given points.
@@ -610,18 +615,30 @@ const CommandQueue = struct {
     // _last_clip: ?math.Rect(f32) = null,
 
     /// Draws the given number of vertices from the vertex queue.
-    pub fn drawVertices(self: *CommandQueue, count: u16) !void {
+    ///
+    /// Asserts that the queue can hold one additional item.
+    pub fn drawVerticesAssumeCapacity(self: *CommandQueue, count: u16) !void {
         if (self.last()) |last_cmd|
             if (last_cmd.* == .draw_vertices) {
                 last_cmd.draw_vertices += count;
                 return;
             };
 
-        try self._list.appendBounded(.{ .draw_vertices = count });
+        self._list.appendAssumeCapacity(.{ .draw_vertices = count });
+    }
+
+    /// Draws the given number of vertices from the vertex queue.
+    ///
+    /// Allocates more memory as necessary.
+    pub fn drawVerticesAlloc(self: *CommandQueue, gpa: std.mem.Allocator, count: u16) !void {
+        try self._list.ensureUnusedCapacity(gpa, 1);
+        try self.drawVerticesAssumeCapacity(count);
     }
 
     /// Sets the color multiplier used for subsequent drawing operations.
-    pub fn switchColor(self: *CommandQueue, color: math.Color(u8)) !void {
+    ///
+    /// Asserts that the queue can hold one additional item.
+    pub fn switchColorAssumeCapacity(self: *CommandQueue, color: math.Color(u8)) !void {
         if (std.meta.eql(self._current_color, color))
             return;
         self._current_color = color;
@@ -632,7 +649,15 @@ const CommandQueue = struct {
                 return;
             };
 
-        try self._list.appendBounded(.{ .switch_color = color });
+        self._list.appendAssumeCapacity(.{ .switch_color = color });
+    }
+
+    /// Sets the color multiplier used for subsequent drawing operations.
+    ///
+    /// Allocates more memory as necessary.
+    pub fn switchColorAlloc(self: *CommandQueue, gpa: std.mem.Allocator, color: math.Color(u8)) !void {
+        try self._list.ensureUnusedCapacity(gpa, 1);
+        try self.switchColorAssumeCapacity(color);
     }
 
     /// Clears the command queue.

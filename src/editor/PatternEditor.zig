@@ -37,7 +37,7 @@ pub fn respond(self: *PatternEditor, editor: *Editor, event: input.Event, state:
     if (event == .scroll) {
         self.scroll_amount = .from_simd(@min(
             @max(
-                self.scroll_amount.to_simd() + event.scroll.amount.to_simd() * @as(@Vector(2, f32), @splat(8)),
+                self.scroll_amount.to_simd() + event.scroll.amount.to_simd() * @Vector(2, f32){ 6, 6 },
                 @as(@Vector(2, f32), @splat(0)),
             ),
             @Vector(2, f32){ tick_width * std.math.maxInt(u16), @as(f32, pitch_height) * std.math.maxInt(u8) },

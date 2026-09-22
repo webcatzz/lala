@@ -33,7 +33,7 @@ pub const Action = union(enum) {
     /// Sets the interval occupied by a note.
     set_note_interval: struct { pattern_index: u8, note_index: u8, interval: Track.Interval(Track.Pattern.Tick) },
     /// Sets the pitch of a note.
-    set_note_pitch: struct { pattern_index: u8, note_index: u8, pitch: u8 },
+    set_note_pitch: struct { pattern_index: u8, note_index: u8, pitch: Track.Note.Pitch },
     /// Sets the volume of a note.
     set_note_volume: struct { pattern_index: u8, note_index: u8, volume: u4 },
 
@@ -196,7 +196,7 @@ pub const Action = union(enum) {
     /// Sets the pitch of a note.
     ///
     /// Returns the old pitch of the note.
-    pub fn setNotePitch(editor: *Editor, pattern_index: u8, note_index: u8, pitch: u8) u8 {
+    pub fn setNotePitch(editor: *Editor, pattern_index: u8, note_index: u8, pitch: Track.Note.Pitch) Track.Note.Pitch {
         const note = &editor.track.patterns[pattern_index].notes[note_index];
         const old_pitch = note.pitch;
         note.pitch = pitch;

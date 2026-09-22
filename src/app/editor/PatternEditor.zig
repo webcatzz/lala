@@ -2,7 +2,6 @@ const ActionBus = @import("ActionBus.zig");
 const Editor = @import("Editor.zig");
 const input = @import("../core/input.zig");
 const math = @import("../core/math.zig");
-const pitch = @import("../../synth/pitch.zig");
 const Renderer = @import("../core/render/Renderer.zig");
 const sdl = @import("sdl");
 const std = @import("std");
@@ -102,16 +101,16 @@ pub fn draw(self: PatternEditor, editor: *Editor) !void {
     const visible_key_count: usize = @trunc(self.rect.h / pitch_height);
 
     for (0..visible_key_count) |key_index| {
-        const key_pitch = pitch_at_top -| @as(u8, @truncate(key_index));
+        const key_pitch: Track.Note.Pitch = @enumFromInt(pitch_at_top -| @as(u8, @truncate(key_index)));
         const key_y = self.yFromPitch(key_pitch);
 
-        try renderer.drawSprite(switch (pitch.color(key_pitch)) {
+        try renderer.drawSprite(switch (key_pitch.color()) {
             .white => .piano_key_white,
             .black => .piano_key_black,
         }, .{ .x = self.rect.x, .y = key_y });
 
-        if (pitch.class(key_pitch) == .c)
-            if (pitch.name(key_pitch)) |pitch_name|
+        if (key_pitch.class() == .c)
+            if (key_pitch.name()) |pitch_name|
                 try renderer.print(pitch_name, .{ .x = self.rect.x, .y = key_y }, .black);
 
         try renderer.drawSpriteStretch(.line, .{
@@ -150,12 +149,12 @@ fn pitchAtTop(self: PatternEditor) u8 {
     return @as(u8, @trunc(self.scroll_amount.y / pitch_height));
 }
 
-fn pitchFromY(self: PatternEditor, y: f32) u8 {
-    return self.pitchAtTop() -| @as(u8, @trunc((y - self.rect.y) / pitch_height));
+fn pitchFromY(self: PatternEditor, y: f32) Track.Note.Pitch {
+    return @enumFromInt(self.pitchAtTop() -| @as(u8, @trunc((y - self.rect.y) / pitch_height)));
 }
 
-fn yFromPitch(self: PatternEditor, p: u8) f32 {
-    return (@as(f32, @floatFromInt(self.pitchAtTop())) - @as(f32, @floatFromInt(p))) * pitch_height + self.rect.y;
+fn yFromPitch(self: PatternEditor, p: Track.Note.Pitch) f32 {
+    return (@as(f32, @floatFromInt(self.pitchAtTop())) - @as(f32, @floatFromInt(@intFromEnum(p)))) * pitch_height + self.rect.y;
 }
 
 fn tickAtLeft(self: PatternEditor) Track.Pattern.Tick {

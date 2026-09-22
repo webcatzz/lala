@@ -1,6 +1,5 @@
 const input = @import("../core/input.zig");
 const math = @import("../core/math.zig");
-const pitch = @import("../../synth/pitch.zig");
 const Renderer = @import("../core/render/Renderer.zig");
 const sdl = @import("sdl");
 const std = @import("std");

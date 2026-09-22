@@ -1,6 +1,5 @@
 //! Synthesizes audio from track data.
 
-const pitch = @import("pitch.zig");
 const std = @import("std");
 const Track = @import("Track.zig");
 
@@ -123,19 +122,19 @@ const Channel = struct {
 };
 
 const Note = struct {
-    pitch: f32,
+    pitch: Track.Note.Pitch,
     volume: f32 = 1,
 
     /// Updates the note for the given tick.
     fn update(self: *Note, settings: Track.Note) void {
-        self.pitch = @floatFromInt(settings.pitch);
+        self.pitch = settings.pitch;
         self.volume = @as(f32, @floatFromInt(settings.volume)) / 0xf;
     }
 
     /// Synthesizes audio for the current tick into the given output buffer.
     fn synth(self: *Note, instrument: Track.Instrument, sample_offset: usize, sample_rate: u32, output: []f32) void {
         for (output, 0..) |*sample, i| {
-            const phase = @as(f32, @floatFromInt(sample_offset + i)) * pitch.freq(self.pitch) / @as(f32, @floatFromInt(sample_rate));
+            const phase = @as(f32, @floatFromInt(sample_offset + i)) * self.pitch.freq() / @as(f32, @floatFromInt(sample_rate));
             const phase_fract = phase - @trunc(phase);
             sample.* += instrument.sample(phase_fract) * self.volume;
         }

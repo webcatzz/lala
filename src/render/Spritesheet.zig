@@ -214,10 +214,13 @@ pub const Sprite = enum(u8) {
 /// The spritesheet is owned by the caller and should be freed by calling
 /// `deinit`.
 pub fn init(io: std.Io, gpa: std.mem.Allocator, gpu_device: *sdl.SDL_GPUDevice) !Spritesheet {
-    const pixel_byte_size = 4;
-    const scanline_byte_size = width * pixel_byte_size + 1;
+    const bytes_per_pixel = 4;
+    const bytes_per_scanline = width * bytes_per_pixel + 1;
 
     // Reads PNG
+
+    // Based on the PNG specification, version 1.2
+    // https://www.libpng.org/pub/png/spec/1.2/PNG-Contents.html
 
     const file = try std.Io.Dir.cwd().openFile(io, "res/spritesheet.png", .{});
     defer file.close(io);
@@ -297,7 +300,7 @@ pub fn init(io: std.Io, gpa: std.mem.Allocator, gpu_device: *sdl.SDL_GPUDevice) 
 
     // Decompresses image data
 
-    const decompressed_data = try gpa.alloc(u8, scanline_byte_size * height);
+    const decompressed_data = try gpa.alloc(u8, bytes_per_scanline * height);
     defer gpa.free(decompressed_data);
 
     var decompressed_data_len: zlib.uLongf = @intCast(decompressed_data.len);
@@ -318,33 +321,38 @@ pub fn init(io: std.Io, gpa: std.mem.Allocator, gpu_device: *sdl.SDL_GPUDevice) 
     // Reverses per-scanline filters
 
     for (0..height) |y| {
-        const i = y * scanline_byte_size + 1;
+        const i = y * bytes_per_scanline + 1;
 
         switch (decompressed_data[i - 1]) {
             0 => {},
             // Sub
-            1 => for (pixel_byte_size..scanline_byte_size - 1) |x| {
+            1 => for (bytes_per_pixel..bytes_per_scanline - 1) |x| {
                 decompressed_data[i + x] +%=
-                    decompressed_data[i + x - pixel_byte_size];
+                    decompressed_data[i + x - bytes_per_pixel];
             },
             // Up
-            2 => if (y > 0) for (0..scanline_byte_size - 1) |x| {
+            2 => if (y > 0) for (0..bytes_per_scanline - 1) |x| {
                 decompressed_data[i + x] +%=
-                    decompressed_data[i + x - scanline_byte_size];
+                    decompressed_data[i + x - bytes_per_scanline];
             },
             // Average
-            3 => for (0..scanline_byte_size - 1) |x| {
+            3 => for (0..bytes_per_scanline - 1) |x| {
                 decompressed_data[i + x] +%=
-                    ((if (x == 0) 0 else decompressed_data[i + x - pixel_byte_size]) +
-                        (if (y == 0) 0 else decompressed_data[i + x - scanline_byte_size])) / 2;
+                    ((if (x < bytes_per_pixel) 0 else decompressed_data[i + x - bytes_per_pixel]) +
+                        (if (y == 0) 0 else decompressed_data[i + x - bytes_per_scanline])) / 2;
             },
             // Paeth
-            4 => for (0..scanline_byte_size - 1) |x| {
-                decompressed_data[i + x] +%= paethPredictor(
-                    if (x == 0) 0 else decompressed_data[i + x - pixel_byte_size],
-                    if (y == 0) 0 else decompressed_data[i + x - scanline_byte_size],
-                    if (x == 0 or y == 0) 0 else decompressed_data[i + x - scanline_byte_size - pixel_byte_size],
-                );
+            4 => for (0..bytes_per_scanline - 1) |x| {
+                const a = if (x < bytes_per_pixel) 0 else decompressed_data[i + x - bytes_per_pixel];
+                const b = if (y == 0) 0 else decompressed_data[i + x - bytes_per_scanline];
+                const c = if (x < bytes_per_pixel or y == 0) 0 else decompressed_data[i + x - bytes_per_scanline - bytes_per_pixel];
+
+                const p = @as(i32, a) + b - c;
+                const pa = @abs(p - a);
+                const pb = @abs(p - b);
+                const pc = @abs(p - c);
+
+                decompressed_data[i + x] +%= if (pa <= pb and pa <= pc) a else if (pb <= pc) b else c;
             },
 
             else => |filter_type| {
@@ -428,22 +436,4 @@ pub fn init(io: std.Io, gpa: std.mem.Allocator, gpu_device: *sdl.SDL_GPUDevice) 
 pub fn deinit(self: *Spritesheet, gpu_device: *sdl.SDL_GPUDevice) void {
     sdl.SDL_ReleaseGPUTexture(gpu_device, self._gpu_texture);
     self.* = undefined;
-}
-
-/// Based on [the PNG specification].
-///
-/// [the PNG specification]:
-///     https://www.libpng.org/pub/png/spec/1.2/PNG-Filters.html#Filter-type-4-Paeth
-fn paethPredictor(a: u8, b: u8, c: u8) u8 {
-    // TODO this math looks simplifiable
-    const p = @as(i32, a) + b - c;
-    const pa = @abs(p - a);
-    const pb = @abs(p - b);
-    const pc = @abs(p - c);
-    return if (pa <= pb and pa <= pc)
-        a
-    else if (pb <= pc)
-        b
-    else
-        c;
 }

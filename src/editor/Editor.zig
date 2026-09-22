@@ -56,7 +56,7 @@ _audio_stream: *sdl.SDL_AudioStream,
 const Editor = @This();
 
 /// The rendering scale applied to the editor.
-const render_scale = 4;
+const render_scale = @import("../main.zig").render_scale;
 
 /// Returns a new editor.
 ///

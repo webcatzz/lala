@@ -11,7 +11,7 @@ pub const usageStr =
 ;
 
 /// The scale applied when rendering.
-const render_scale = 4;
+pub const render_scale = 3;
 
 pub fn main(init: std.process.Init) !void {
     var args = try init.minimal.args.iterateAllocator(init.gpa);

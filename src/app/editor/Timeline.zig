@@ -1,10 +1,10 @@
 const Editor = @import("Editor.zig");
-const input = @import("../input.zig");
-const math = @import("../math.zig");
-const Renderer = @import("../render/Renderer.zig");
+const input = @import("../core/input.zig");
+const math = @import("../core/math.zig");
+const Renderer = @import("../core/render/Renderer.zig");
 const sdl = @import("sdl");
 const std = @import("std");
-const Track = @import("../Track.zig");
+const Track = @import("../../synth/Track.zig");
 
 /// The rectangle occupied by the timeline.
 rect: math.Rect(f32) = .zero,

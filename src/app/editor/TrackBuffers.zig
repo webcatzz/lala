@@ -3,7 +3,7 @@
 //! Components within buffers may not be initialized.
 
 const std = @import("std");
-const Track = @import("../Track.zig");
+const Track = @import("../../synth/Track.zig");
 
 /// Channels.
 channel_buf: []Track.Channel,

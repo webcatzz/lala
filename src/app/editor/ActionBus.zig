@@ -2,7 +2,7 @@
 
 const std = @import("std");
 const Editor = @import("Editor.zig");
-const Track = @import("../Track.zig");
+const Track = @import("../../synth/Track.zig");
 
 /// A stack of recent actions.
 undo_stack: Stack,

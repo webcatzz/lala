@@ -1,11 +1,11 @@
-const input = @import("../input.zig");
-const math = @import("../math.zig");
-const pitch = @import("../pitch.zig");
-const Renderer = @import("../render/Renderer.zig");
+const input = @import("../core/input.zig");
+const math = @import("../core/math.zig");
+const pitch = @import("../../synth/pitch.zig");
+const Renderer = @import("../core/render/Renderer.zig");
 const sdl = @import("sdl");
 const std = @import("std");
-const Synth = @import("../Synth.zig");
-const Track = @import("../Track.zig");
+const Synth = @import("../../synth/Synth.zig");
+const Track = @import("../../synth/Track.zig");
 
 const ActionBus = @import("ActionBus.zig");
 const PatternEditor = @import("PatternEditor.zig");
@@ -56,7 +56,7 @@ _audio_stream: *sdl.SDL_AudioStream,
 const Editor = @This();
 
 /// The rendering scale applied to the editor.
-const render_scale = @import("../main.zig").render_scale;
+const render_scale = @import("../core/loop.zig").render_scale;
 
 /// Returns a new editor.
 ///

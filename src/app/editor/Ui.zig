@@ -3,10 +3,10 @@
 //! Manages a tree of UI "panes", which may each hold variable content.
 
 const Editor = @import("Editor.zig");
-const input = @import("../input.zig");
-const math = @import("../math.zig");
+const input = @import("../core/input.zig");
+const math = @import("../core/math.zig");
 const PatternEditor = @import("PatternEditor.zig");
-const Renderer = @import("../render/Renderer.zig");
+const Renderer = @import("../core/render/Renderer.zig");
 const sdl = @import("sdl");
 const std = @import("std");
 const Timeline = @import("Timeline.zig");

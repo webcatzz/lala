@@ -16,7 +16,7 @@ pub const Channel = struct {
     /// The instrument used to play notes in the channel.
     instrument: Instrument = .{},
     /// The spans of patterns in the channel.
-    sections: []Section = &.{},
+    sections: []Section,
 
     /// The unsigned integer type used to represent ticks within channels.
     pub const Tick = u64;

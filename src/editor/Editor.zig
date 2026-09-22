@@ -146,13 +146,15 @@ pub fn init(gpa: std.mem.Allocator, io: std.Io) !Editor {
         // .font = font,
     };
 
-    const chan_i = try ActionBus.Action.insertChannel(&editor, 0, .{});
+    const chan_i = try ActionBus.Action.insertChannel(&editor, 0, .{
+        .sections = undefined,
+    });
     _ = try ActionBus.Action.insertSection(&editor, 0, .{
         .interval = .{ .first_tick = 0, .last_tick = 384 },
         .pattern_index = 0,
     });
     editor.track.patterns[0] = .{ .notes = editor.track_buffers.note_bufs[0][0..0] };
-    editor.track.channels[chan_i].sections = editor.track_buffers.section_bufs[chan_i][0..2];
+    editor.track.channels[chan_i].sections.ptr = editor.track_buffers.section_bufs[chan_i].ptr;
 
     editor.timeline().selection = .{ .channel_index = 0, .section_index = 0 };
 

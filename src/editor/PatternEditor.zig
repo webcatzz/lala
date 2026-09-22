@@ -122,6 +122,17 @@ pub fn draw(self: PatternEditor, editor: *Editor) !void {
         });
     }
 
+    // Draws section end line
+
+    try renderer.switchColor(.fromHexRgb(0x302c2e));
+    try renderer.drawSpriteStretch(.blank, .{
+        .x = self.xFromTick(@intCast(section.interval.duration())),
+        .y = self.rect.y,
+        .w = 1,
+        .h = self.rect.h,
+    });
+    try renderer.switchColor(.white);
+
     // Draws notes
 
     for (pattern.notes) |note| {

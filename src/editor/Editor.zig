@@ -259,10 +259,7 @@ pub fn redraw(self: *Editor) !void {
 
     self.renderer.clear();
 
-    // try self.renderer.drawSprite(.piano_key_white, .splat(32));
     try self.rootPane().draw(self);
-
-    try self.renderer.print("lala", .zero, .white);
 
     try self.renderer.render(self._window);
 }

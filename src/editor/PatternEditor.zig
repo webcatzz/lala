@@ -130,7 +130,7 @@ pub fn draw(self: PatternEditor, editor: *Editor) !void {
             .x = self.xFromTick(note.interval.first_tick),
             .y = self.yFromPitch(note.pitch),
             .w = @as(f32, @floatFromInt(note.interval.duration())) * tick_width,
-            .h = pitch_height,
+            .h = pitch_height - 1,
         });
     }
 }

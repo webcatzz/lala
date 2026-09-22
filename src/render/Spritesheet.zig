@@ -34,8 +34,12 @@ pub const Sprite = enum(u8) {
     line,
     line_hover,
     piano_key_white,
+    piano_key_white_held,
     piano_key_black,
+    piano_key_black_held,
     section,
+    section_drag_indicator,
+    selection_outline,
 
     // Characters in the "pebble font". Characters in base ASCII are represented
     // with their value in base ASCII plus the value of `pebble_base`. Other

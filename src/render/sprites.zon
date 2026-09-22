@@ -4,11 +4,11 @@
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .line = .{
-        .rect = .{ .x = 7, .y = 1, .w = 1, .h = 5 },
-        .border = .{ .left = 0, .right = 0, .top = 1, .bottom = 0 },
+        .rect = .{ .x = 3, .y = 19, .w = 1, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 1 },
     },
     .line_hover = .{
-        .rect = .{ .x = 9, .y = 1, .w = 2, .h = 5 },
+        .rect = .{ .x = 5, .y = 19, .w = 2, .h = 6 },
         .border = .{ .left = 0, .right = 0, .top = 1, .bottom = 0 },
     },
     .note = .{
@@ -288,15 +288,31 @@
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .piano_key_black = .{
-        .rect = .{ .x = 3, .y = 13, .w = 10, .h = 5 },
+        .rect = .{ .x = 3, .y = 12, .w = 10, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .piano_key_black_held = .{
+        .rect = .{ .x = 14, .y = 12, .w = 10, .h = 6 },
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .piano_key_white = .{
-        .rect = .{ .x = 3, .y = 7, .w = 10, .h = 5 },
+        .rect = .{ .x = 3, .y = 5, .w = 10, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .piano_key_white_held = .{
+        .rect = .{ .x = 14, .y = 5, .w = 10, .h = 6 },
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .section = .{
-        .rect = .{ .x = 23, .y = 7, .w = 11, .h = 8 },
+        .rect = .{ .x = 25, .y = 1, .w = 11, .h = 8 },
         .border = .{ .left = 2, .right = 2, .top = 5, .bottom = 2 },
+    },
+    .section_drag_indicator = .{
+        .rect = .{ .x = 37, .y = 2, .w = 5, .h = 2 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .selection_outline = .{
+        .rect = .{ .x = 25, .y = 10, .w = 7, .h = 7 },
+        .border = .{ .left = 3, .right = 3, .top = 3, .bottom = 3 },
     },
 }

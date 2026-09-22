@@ -111,6 +111,16 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
+    // Sorts info
+
+    const sort = struct {
+        fn is_lt(_: void, a: SpriteInfo, b: SpriteInfo) bool {
+            return std.mem.order(u8, a.name, b.name) == .lt;
+        }
+    };
+
+    std.sort.block(SpriteInfo, sprite_info.items, {}, sort.is_lt);
+
     // Opens output file
 
     const output_file = try std.Io.Dir.cwd().createFile(io, "src/render/sprites.zon", .{});

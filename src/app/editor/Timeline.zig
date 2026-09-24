@@ -16,14 +16,14 @@ is_composing: bool = false,
 const Timeline = @This();
 
 const tick_snap = 48;
-const tick_width = 1;
-const channel_header_width = 160;
+const tick_width = 0.33;
+const channel_header_width = 48;
 const channel_header_background_color = math.Color(f32).fromValue(0.125);
-const channel_height = 120;
+const channel_height = 32;
 
 pub const Selection = struct {
-    channel_index: usize,
-    section_index: usize,
+    channel_index: u8,
+    section_index: u8,
 };
 
 pub fn respond(self: *Timeline, editor: *Editor, event: input.Event, state: input.State) !void {
@@ -61,34 +61,32 @@ pub fn respond(self: *Timeline, editor: *Editor, event: input.Event, state: inpu
 }
 
 pub fn draw(self: Timeline, editor: *Editor) !void {
-    _ = self;
-    _ = editor;
-    // const renderer = &editor.renderer;
+    const renderer = &editor.renderer;
 
-    // const channel_at_top = self.channelIndexAtTop();
+    const channel_at_top = self.channelIndexAtTop();
 
-    // for (editor.track.channels, channel_at_top..) |channel, channel_index| {
-    //     const channel_y = self.yFromChannelIndex(@truncate(channel_index));
+    for (editor.track.channels, channel_at_top..) |channel, channel_index| {
+        const channel_y = self.yFromChannelIndex(@truncate(channel_index));
 
-    //     if (channel_y < self.rect.y - channel_height) continue;
-    //     if (channel_y > self.rect.y + self.rect.h) break;
+        if (channel_y < self.rect.y - channel_height) continue;
+        if (channel_y > self.rect.y + self.rect.h) break;
 
-    //     try renderer.drawSpriteStretch(.blank, .{
-    //         .x = self.rect.x,
-    //         .y = channel_y,
-    //         .w = channel_header_width,
-    //         .h = channel_height,
-    //     });
+        try renderer.drawSpriteStretch(.blank, .{
+            .x = self.rect.x,
+            .y = channel_y,
+            .w = channel_header_width,
+            .h = channel_height,
+        });
 
-    //     for (channel.sections) |section| {
-    //         try renderer.drawSprite9Patch(.note, .{
-    //             .x = self.rect.x + self.scroll_amount.x + @as(f32, @floatFromInt(section.interval.first_tick)) * tick_width,
-    //             .y = channel_y,
-    //             .w = @as(f32, @floatFromInt(section.interval.duration())) * tick_width,
-    //             .h = channel_height,
-    //         }, 1, 1, 1, 1);
-    //     }
-    // }
+        for (channel.sections) |section| {
+            try drawSection(renderer, editor.track.patterns[section.pattern_index], @intCast(section.interval.duration()), .{
+                .x = self.xFromTick(section.interval.first_tick),
+                .y = channel_y,
+                .w = @as(f32, @floatFromInt(section.interval.duration())) * tick_width,
+                .h = channel_height,
+            });
+        }
+    }
 }
 
 fn tickAtLeft(self: Timeline) Track.Channel.Tick {
@@ -99,7 +97,7 @@ fn tickFromX(self: Timeline, x: f32) Track.Channel.Tick {
     return self.tickAtLeft() + @as(Track.Channel.Tick, @trunc(@max(0, x - self.rect.x - channel_header_width) / tick_width));
 }
 
-fn xFromTick(self: Timeline, tick: u16) f32 {
+fn xFromTick(self: Timeline, tick: Track.Channel.Tick) f32 {
     return (@as(f32, @floatFromInt(tick)) - @as(f32, @floatFromInt(self.tickAtLeft()))) * tick_width + self.rect.x + channel_header_width;
 }
 
@@ -113,4 +111,52 @@ fn channelIndexFromY(self: Timeline, y: f32) u8 {
 
 fn yFromChannelIndex(self: Timeline, index: u8) f32 {
     return (@as(f32, @floatFromInt(index)) - @as(f32, @floatFromInt(self.channelIndexAtTop()))) * channel_height + self.rect.y;
+}
+
+fn drawSection(renderer: *Renderer, pattern: Track.Pattern, last_tick: u16, rect: math.Rect(f32)) !void {
+    // Draws section frame
+
+    try renderer.drawSprite9Patch(.section, rect);
+    try renderer.drawSprite(.section_drag_indicator, .{ .x = rect.x + rect.w / 2, .y = rect.y + 1 });
+
+    // Finds pitch range of section
+
+    if (pattern.notes.len == 0) return;
+
+    var min_pitch = @intFromEnum(pattern.notes[0].pitch);
+    var max_pitch = min_pitch;
+    for (pattern.notes[1..]) |note| {
+        min_pitch = @min(min_pitch, @intFromEnum(note.pitch));
+        max_pitch = @max(max_pitch, @intFromEnum(note.pitch));
+    }
+
+    // Calculates note dimensions based on pitch range & last tick
+
+    const inner_rect = rect.grow(comptime blk: {
+        const border = Renderer.Spritesheet.Sprite.info.get(.section).border;
+        break :blk .{
+            .left = -@as(f32, border.left) - 1,
+            .right = -@as(f32, border.right) - 1,
+            .top = -@as(f32, border.top) - 1,
+            .bottom = -@as(f32, border.bottom) - 1,
+        };
+    });
+
+    const section_tick_width = inner_rect.w / last_tick;
+    const section_pitch_height = inner_rect.h / (max_pitch - min_pitch + 1);
+
+    // Draws notes
+
+    try renderer.switchColor(.fromHexRgb(0xe6482e));
+    for (pattern.notes) |note| {
+        if (note.interval.first_tick > last_tick) break;
+        const x = note.interval.first_tick * section_tick_width;
+        try renderer.drawSpriteStretch(.blank, .{
+            .x = inner_rect.x + x,
+            .y = inner_rect.y + (max_pitch - @intFromEnum(note.pitch)) * section_pitch_height,
+            .w = @min(note.interval.duration() * section_tick_width, inner_rect.w - x),
+            .h = section_pitch_height,
+        });
+    }
+    try renderer.switchColor(.white);
 }

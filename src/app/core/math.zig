@@ -10,6 +10,11 @@ pub fn Sides(comptime T: type) type {
         right: T,
         top: T,
         bottom: T,
+
+        /// Returns an area with all sides set to `v`.
+        pub fn splat(v: T) Sides(T) {
+            return .{ .left = v, .right = v, .top = v, .bottom = v };
+        }
     };
 }
 
@@ -266,11 +271,14 @@ pub fn Rect(comptime T: type) type {
             return rect;
         }
 
-        /// Expands the rectangle on all sides by the given amount.
-        pub fn grow(self: Rect(T), amount: T) Rect(T) {
-            const new_pos = @Vector(2, T){ self.x, self.y } - @as(@Vector(2, T), @splat(amount));
-            const new_size = @Vector(2, T){ self.w, self.h } + @as(@Vector(2, T), @splat(amount * 2));
-            return .{ .x = new_pos[0], .y = new_pos[1], .w = new_size[0], .h = new_size[1] };
+        /// Expands the rectangle's sides by the given amounts.
+        pub fn grow(self: Rect(T), sides: Sides(T)) Rect(T) {
+            return .{
+                .x = self.x - sides.left,
+                .y = self.y - sides.top,
+                .w = self.w + sides.left + sides.right,
+                .h = self.h + sides.top + sides.bottom,
+            };
         }
 
         /// Splits the rectangle in two at the given position.

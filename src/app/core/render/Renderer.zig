@@ -367,12 +367,12 @@ pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
                     sdl.SDL_DrawGPUPrimitives(render_pass, vertex_count, 1, vertex_index, 0);
                     vertex_index += vertex_count;
                 },
-                .switch_color => |color| sdl.SDL_PushGPUFragmentUniformData(command_buffer, 0, &.{
+                .switch_color => |color| sdl.SDL_PushGPUFragmentUniformData(command_buffer, 0, &[4]f32{
                     @as(f32, @floatFromInt(color.r)) / 255,
                     @as(f32, @floatFromInt(color.g)) / 255,
                     @as(f32, @floatFromInt(color.b)) / 255,
                     @as(f32, @floatFromInt(color.a)) / 255,
-                }, @sizeOf(f32) * 4),
+                }, @sizeOf([4]f32)),
             }
         }
     }

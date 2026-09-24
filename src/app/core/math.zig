@@ -151,6 +151,16 @@ pub fn Vec2(comptime T: type) type {
             return .{ .x = -self.x, .y = -self.y };
         }
 
+        /// Returns the component-wise minimum of the two vectors.
+        pub fn min(self: Vec2(T), other: Vec2(T)) Vec2(T) {
+            return .{ .x = @min(self.x, other.x), .y = @min(self.y, other.y) };
+        }
+
+        /// Returns the component-wise maximum of the two vectors.
+        pub fn max(self: Vec2(T), other: Vec2(T)) Vec2(T) {
+            return .{ .x = @max(self.x, other.x), .y = @max(self.y, other.y) };
+        }
+
         /// Returns the magnitude (i.e. length) of the vector, squared.
         pub fn magsq(self: Vec2(T)) T {
             return self.x * self.x + self.y * self.y;

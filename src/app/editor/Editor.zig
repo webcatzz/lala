@@ -50,6 +50,9 @@ _audio_device: sdl.SDL_AudioDeviceID,
 /// The audio stream used to play back audio.
 _audio_stream: *sdl.SDL_AudioStream,
 
+/// If `true`, the editor should redraw.
+should_redraw: bool = false,
+
 // font: Font,
 
 const Editor = @This();
@@ -233,6 +236,11 @@ pub fn iter(self: *Editor) !void {
         if (!sdl.SDL_PutAudioStreamData(self._audio_stream, output_buf.ptr, @as(c_int, @intCast(output_len)) * @sizeOf(f32)))
             return error.Sdl;
     }
+
+    if (self.should_redraw) {
+        self.should_redraw = false;
+        try self.redraw();
+    }
 }
 
 /// Lays out the editor UI.
@@ -248,7 +256,14 @@ pub fn layOut(self: *Editor) void {
     });
 }
 
-/// Draws the editor UI.
+/// Requests that the editor redraw at a later time.
+///
+/// Calling this function multiple times will only result in one redraw.
+pub fn queueRedraw(self: *Editor) void {
+    self.should_redraw = true;
+}
+
+/// Redraws the editor UI.
 pub fn redraw(self: *Editor) !void {
     const root_pane_rect = self.rootPane().rect().*;
     self.renderer.scale = .{

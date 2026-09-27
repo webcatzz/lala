@@ -3,6 +3,8 @@
 const chip = @import("chip.zig");
 const std = @import("std");
 
+const Track = @This();
+
 /// The tempo of the track, in ticks-per-second.
 tempo: u16 = 450,
 /// The channels in the track.
@@ -10,7 +12,11 @@ channels: []Channel,
 /// The patterns in the track.
 patterns: []Pattern,
 
-const Track = @This();
+/// An empty track.
+pub const empty: Track = .{
+    .channels = &.{},
+    .patterns = &.{},
+};
 
 pub const Channel = struct {
     /// The instrument used to play notes in the channel.

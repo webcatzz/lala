@@ -101,7 +101,8 @@ pub fn init(gpa: std.mem.Allocator) !Ui {
     var nodes: sparse_list.SparseList(Node) = try .initCapacity(gpa, 0);
     errdefer nodes.deinit(gpa);
 
-    const root_node: Id = .{ ._index = @intCast(try nodes.insert(gpa, .{ .parent = undefined })) };
+    const i = try nodes.insert(gpa, .{ .parent = undefined });
+    const root_node: Id = .{ ._index = @intCast(i) };
 
     return .{
         ._nodes = nodes,
@@ -220,8 +221,7 @@ pub fn repaint(self: *Ui, renderer: *Renderer, window: *sdl.SDL_Window) !void {
     const root_node_box = self._nodes.items[self.root_node._index].box;
     renderer.switchScale(.{ .x = 1 / root_node_box.w, .y = 1 / root_node_box.h });
 
-    // try self.paintNode(renderer, self.root_node);
-    try renderer.drawSpriteStretch(.note, .{ .w = 8, .h = 8 });
+    try self.paintNode(renderer, self.root_node);
     try renderer.render(window);
 }
 

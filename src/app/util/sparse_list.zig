@@ -92,6 +92,7 @@ pub fn SparseList(comptime T: type) type {
 
             const next_i = self.items.len + 1;
             try self.setCapacity(gpa, std.ArrayList(T).growCapacity(next_i));
+            self.items[next_i] = item;
             return next_i;
         }
 

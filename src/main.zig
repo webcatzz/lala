@@ -9,3 +9,9 @@ pub fn main(init: std.process.Init) !void {
         return err;
     };
 }
+
+// Test imports
+
+test {
+    _ = @import("app/sys/Ui.zig");
+}

@@ -253,8 +253,9 @@ fn print_node(self: Ui, id: Id, writer: *std.Io.Writer, level: usize) !void {
         try self.print_node(child, writer, level + 1);
 }
 
-test "UI init-deinit" {
-    const gpa = std.testing.allocator;
-    var ui = try init(gpa);
+// Tests
+
+test "init deinit" {
+    var ui = try init(std.testing.allocator);
     ui.deinit();
 }

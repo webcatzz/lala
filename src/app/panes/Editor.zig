@@ -12,22 +12,6 @@ const TrackBuffers = @import("TrackBuffers.zig");
 const Timeline = @import("Timeline.zig");
 const Ui = @import("Ui.zig");
 
-action_bus: ActionBus,
-
-/// The track being edited.
-track: Track,
-/// Buffers of track components.
-///
-/// This is the allocation used to store track components created by the editor.
-track_buffers: TrackBuffers,
-
-/// The synth used to play the edited track.
-_synth: Synth,
-/// The audio buffer used by the synth.
-_synth_output_buf: []f32,
-/// If `true`, the editor should play back audio.
-is_playing: bool = false,
-
 /// The UI system.
 ui: Ui,
 /// The ID of the root UI pane.
@@ -41,17 +25,6 @@ _timeline_pid: Ui.Pane.Id,
 gpa: std.mem.Allocator,
 /// The IO interface provided by the editor.
 io: std.Io,
-/// The window used to display the editor.
-_window: *sdl.SDL_Window,
-/// The renderer used to display the editor.
-renderer: Renderer,
-/// The audio device used to play back audio.
-_audio_device: sdl.SDL_AudioDeviceID,
-/// The audio stream used to play back audio.
-_audio_stream: *sdl.SDL_AudioStream,
-
-/// If `true`, the editor should redraw.
-should_redraw: bool = false,
 
 // font: Font,
 
@@ -158,7 +131,7 @@ pub fn init(gpa: std.mem.Allocator, io: std.Io) !Editor {
     editor.track.patterns[0] = .{ .notes = editor.track_buffers.note_bufs[0][0..0] };
     editor.track.channels[chan_i].sections.ptr = editor.track_buffers.section_bufs[chan_i].ptr;
 
-    editor.timeline().selection = .{ .channel_index = 0, .section_index = 0 };
+    editor.timeline().selection = .{ .section_start = .{ .channel_index = 0, .section_index = 0 } };
 
     editor.layOut();
     try editor.redraw();
@@ -188,27 +161,6 @@ pub fn deinit(self: *Editor) void {
 
 // Actions
 
-/// Shorthand for `self.action_bus.do(self, action)`.
-///
-/// See `ActionBus.do` for documentation.
-pub fn do(self: *Editor, action: ActionBus.Action) !ActionBus.Action {
-    return self.action_bus.do(self, action);
-}
-
-/// Shorthand for `self.action_bus.undo(self)`.
-///
-/// See `ActionBus.undo` for documentation.
-pub fn undo(self: *Editor) !?void {
-    return self.action_bus.undo(self);
-}
-
-/// Shorthand for `self.action_bus.redo(self)`.
-///
-/// See `ActionBus.redo` for documentation.
-pub fn redo(self: *Editor) !?void {
-    return self.action_bus.redo(self);
-}
-
 /// Updates the editor in response to the given event.
 pub fn respond(self: *Editor, event: input.Event, state: input.State) !void {
     if (state.was_action_just_pressed(.editor_undo)) {
@@ -236,11 +188,6 @@ pub fn iter(self: *Editor) !void {
         if (!sdl.SDL_PutAudioStreamData(self._audio_stream, output_buf.ptr, @as(c_int, @intCast(output_len)) * @sizeOf(f32)))
             return error.Sdl;
     }
-
-    if (self.should_redraw) {
-        self.should_redraw = false;
-        try self.redraw();
-    }
 }
 
 /// Lays out the editor UI.
@@ -256,14 +203,7 @@ pub fn layOut(self: *Editor) void {
     });
 }
 
-/// Requests that the editor redraw at a later time.
-///
-/// Calling this function multiple times will only result in one redraw.
-pub fn queueRedraw(self: *Editor) void {
-    self.should_redraw = true;
-}
-
-/// Redraws the editor UI.
+/// Draws the editor UI.
 pub fn redraw(self: *Editor) !void {
     const root_pane_rect = self.rootPane().rect().*;
     self.renderer.scale = .{

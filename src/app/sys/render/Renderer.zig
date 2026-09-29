@@ -6,7 +6,7 @@
 //! 2. `render` is called to render them to a window.
 
 const builtin = @import("builtin");
-const math = @import("../math.zig");
+const math = @import("../../util/math.zig");
 const sdl = @import("sdl");
 const std = @import("std");
 
@@ -19,7 +19,7 @@ vertex_queue: std.ArrayList(Vertex),
 /// The spritesheet used by the renderer.
 spritesheet: Spritesheet,
 /// A multiplier applied to rendering coordinates.
-scale: math.Vec2(f32) = .splat(1),
+_scale: math.Vec2(f32) = .splat(1),
 
 /// An allocator for commands and vertices.
 gpa: std.mem.Allocator,
@@ -178,6 +178,11 @@ pub fn deinit(self: *Renderer) void {
 pub fn clear(self: *Renderer) void {
     self.vertex_queue.clearRetainingCapacity();
     self.command_queue.clear();
+}
+
+/// Sets the scale multiplier applied to subsequent draw operations.
+pub fn switchScale(self: *Renderer, scale: math.Vec2(f32)) void {
+    self._scale = scale;
 }
 
 /// Sets the color multiplier applied to subsequent draw operations.
@@ -397,7 +402,7 @@ pub fn releaseWindow(self: *Renderer, window: *sdl.SDL_Window) void {
 /// Converts a screen position to normalized device coordinates.
 pub fn mapPos(self: Renderer, pos: math.Vec2(f32)) math.Vec2(f32) {
     return math.Vec2(f32).from_simd(
-        pos.to_simd() * self.scale.to_simd() * @as(math.Vec2(f32).Simd, @splat(2)) - @as(math.Vec2(f32).Simd, @splat(1)),
+        pos.to_simd() * self._scale.to_simd() * @as(math.Vec2(f32).Simd, @splat(2)) - @as(math.Vec2(f32).Simd, @splat(1)),
     ).withNeg(.y);
 }
 

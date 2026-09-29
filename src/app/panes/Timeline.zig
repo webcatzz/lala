@@ -10,10 +10,21 @@ const Track = @import("../../synth/Track.zig");
 rect: math.Rect(f32) = .zero,
 scroll_amount: math.Vec2(f32) = .zero,
 
-selection: ?Selection = null,
-is_composing: bool = false,
+/// The current selection in the timeline.
+selection: union(enum) {
+    /// An empty selection.
+    empty,
+    /// The start of a section, represented by the section's coordinates.
+    section_start: SectionCoords,
+    /// The end of a section, represented by the section's coordinates.
+    section_end: SectionCoords,
+    /// An interval.
+    interval: Track.Interval(u64),
+} = .empty,
 
 const Timeline = @This();
+
+pub const SectionCoords = struct { channel_index: u8, section_index: u8 };
 
 const tick_snap = 48;
 const tick_width = 0.33;
@@ -21,43 +32,65 @@ const channel_header_width = 48;
 const channel_header_background_color = math.Color(f32).fromValue(0.125);
 const channel_height = 32;
 
-pub const Selection = struct {
-    channel_index: u8,
-    section_index: u8,
-};
-
 pub fn respond(self: *Timeline, editor: *Editor, event: input.Event, state: input.State) !void {
-    if (event == .scroll) {
-        self.scroll_amount = self.scroll_amount.add(event.scroll.amount);
-        try editor.redraw();
-    } else if (event == .cursor and self.is_composing) {
-        const selection = self.selection orelse return;
-        const section = &editor.track.channels[selection.channel_index].sections[selection.section_index];
+    switch (event) {
+        .scroll => {
+            self.scroll_amount = self.scroll_amount.add(event.scroll.amount);
+            editor.queueRedraw();
+        },
+        .cursor => switch (self.selection) {
+            .section_start, .section_end => |selection| {
+                const section = &editor.track.channels[selection.channel_index].sections[selection.section_index];
+                section.interval.last_tick = @max(
+                    section.interval.first_tick + tick_snap,
+                    self.tickFromX(state.cursor_pos.x) / tick_snap * tick_snap,
+                );
 
-        section.interval.last_tick = @max(
-            section.interval.first_tick + tick_snap,
-            self.tickFromX(state.cursor_pos.x) / tick_snap * tick_snap,
-        );
-        try editor.redraw();
-    } else {
-        if (state.was_action_just_pressed(.timeline_place_section)) {
-            const channel_index = self.channelIndexAtTop();
-            const tick = self.tickFromX(state.cursor_pos.x);
+                editor.queueRedraw();
+            },
+            else => {},
+        },
+        .button => {
+            if (state.was_action_just_pressed(.timeline_place_section)) {
+                const cursor_tick = self.tickFromX(state.cursor_pos.x);
+                const cursor_channel_index = self.channelIndexFromY(state.cursor_pos.y);
 
-            self.selection = .{
-                .channel_index = channel_index,
-                .section_index = (try editor.do(.{ .insert_section = .{
-                    .channel_index = channel_index,
-                    .section = .{
-                        .interval = .at(tick),
-                        .pattern_index = 0,
+                self.selection = .{
+                    .section_start = .{
+                        .channel_index = cursor_channel_index,
+                        .section_index = (try editor.do(.{ .insert_section = .{
+                            .channel_index = cursor_channel_index,
+                            .section = .{ .interval = .at(cursor_tick), .pattern_index = 0 },
+                        } })).remove_section.section_index,
                     },
-                } })).remove_section.section_index,
-            };
-            self.is_composing = true;
-        } else if (state.was_action_just_released(.timeline_place_section))
-            self.is_composing = false;
+                };
+            } else if (state.was_action_just_released(.timeline_place_section))
+                self.selection = .empty;
+        },
     }
+
+    // if (event == .scroll) {
+    //     self.scroll_amount = self.scroll_amount.add(event.scroll.amount);
+    //     try editor.redraw();
+    // } else if (event == .cursor and self.is_composing) {} else {
+    //     if (state.was_action_just_pressed(.timeline_place_section)) {
+    //         const channel_index = self.channelIndexAtTop();
+    //         const tick = self.tickFromX(state.cursor_pos.x);
+
+    //         self.selection = .{
+    //             .channel_index = channel_index,
+    //             .section_index = (try editor.do(.{ .insert_section = .{
+    //                 .channel_index = channel_index,
+    //                 .section = .{
+    //                     .interval = .at(tick),
+    //                     .pattern_index = 0,
+    //                 },
+    //             } })).remove_section.section_index,
+    //         };
+    //         self.is_composing = true;
+    //     } else if (state.was_action_just_released(.timeline_place_section))
+    //         self.is_composing = false;
+    // }
 }
 
 pub fn draw(self: Timeline, editor: *Editor) !void {
@@ -106,7 +139,7 @@ fn channelIndexAtTop(self: Timeline) u8 {
 }
 
 fn channelIndexFromY(self: Timeline, y: f32) u8 {
-    return self.channelAtTop() + @as(u8, @trunc((y - self.rect.y) / channel_height));
+    return self.channelIndexAtTop() + @as(u8, @trunc((y - self.rect.y) / channel_height));
 }
 
 fn yFromChannelIndex(self: Timeline, index: u8) f32 {
@@ -159,4 +192,11 @@ fn drawSection(renderer: *Renderer, pattern: Track.Pattern, last_tick: u16, rect
         });
     }
     try renderer.switchColor(.white);
+}
+
+pub fn selectedSectionCoords(self: *const Timeline) ?SectionCoords {
+    return switch (self.selection) {
+        .section_start, .section_end => |coords| coords,
+        else => null,
+    };
 }

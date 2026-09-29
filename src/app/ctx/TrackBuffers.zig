@@ -1,9 +1,11 @@
 //! Manages allocation of track components.
 //!
-//! Components within buffers may not be initialized.
+//! Components within buffers may be uninitialized.
 
 const std = @import("std");
 const Track = @import("../../synth/Track.zig");
+
+const TrackBuffers = @This();
 
 /// Channels.
 channel_buf: []Track.Channel,
@@ -17,8 +19,6 @@ pattern_buf: []Track.Pattern,
 ///
 /// Of the same length as `pattern_buf`.
 note_bufs: [][]Track.Note,
-
-const TrackBuffers = @This();
 
 /// Allocates and returns track buffers.
 ///
@@ -76,6 +76,14 @@ pub fn deinit(self: TrackBuffers, gpa: std.mem.Allocator) void {
         gpa.free(note_buf);
     gpa.free(self.note_bufs);
     gpa.free(self.pattern_buf);
+}
+
+/// Returns an empty track backed by the buffers.
+pub fn wrap(self: TrackBuffers) Track {
+    return .{
+        .channels = self.channel_buf[0..0],
+        .patterns = self.pattern_buf,
+    };
 }
 
 /// Resizes the buffers to hold at the given number of channels.

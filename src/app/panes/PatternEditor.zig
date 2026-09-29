@@ -1,4 +1,5 @@
 const ActionBus = @import("ActionBus.zig");
+const Ctx = @import("../ctx/Ctx.zig");
 const Editor = @import("Editor.zig");
 const input = @import("../core/input.zig");
 const math = @import("../core/math.zig");
@@ -8,15 +9,23 @@ const std = @import("std");
 const Timeline = @import("Timeline.zig");
 const Track = @import("../../synth/Track.zig");
 
-/// The rectangle occupied by the editor.
-rect: math.Rect(f32) = .zero,
+const PatternEditor = @This();
+
 /// The amount scrolled, relative to the initial position.
 scroll_amount: math.Vec2(f32) = .zero,
+/// The current selection.
+selection: union(enum) {
+    /// An empty selection.
+    empty,
+    /// The start of a note, represented by the note's index.
+    note_start: u8,
+    /// The end of a note, represented by the note's index.
+    note_end: u8,
+    /// An interval.
+    interval: Track.Interval(u16),
+} = .empty,
 
 tick_snap: u16 = 48,
-active_note_index: ?u8 = null,
-
-const PatternEditor = @This();
 
 /// The width of a tick.
 const tick_width = 0.33;
@@ -32,67 +41,67 @@ const piano_key_black: math.Color(f32) = .black;
 const piano_key_border_color: math.Color(f32) = .fromValue(0.75);
 
 /// Updates the pattern editor in response to user input.
-pub fn respond(self: *PatternEditor, editor: *Editor, event: input.Event, state: input.State) !void {
-    if (event == .scroll) {
-        self.scroll_amount = .from_simd(@min(
-            @max(
-                self.scroll_amount.to_simd() + event.scroll.amount.to_simd() * @Vector(2, f32){ 6, 6 },
-                @as(@Vector(2, f32), @splat(0)),
-            ),
-            @Vector(2, f32){ tick_width * std.math.maxInt(u16), @as(f32, pitch_height) * std.math.maxInt(u8) },
-        ));
-        try editor.redraw();
-    } else if (editor.timeline().selection) |selection| {
-        if (event == .cursor) {
-            if (state.is_button_pressed(.mouse_left)) {
-                if (self.active_note_index) |active_note_index| {
-                    const section = editor.track.channels[selection.channel_index].sections[selection.section_index];
-                    const note = &editor.track.patterns[section.pattern_index].notes[active_note_index];
-                    note.interval.last_tick = (@max(note.interval.first_tick, self.tickFromX(event.cursor.pos.x)) / self.tick_snap + 1) * self.tick_snap;
-                    try editor.redraw();
-                }
-            }
-        } else if (state.was_action_just_pressed(.pattern_editor_place_note) and state.cursor_pos.x > self.rect.x + piano_key_width) {
-            const cursor_tick = self.tickFromX(state.cursor_pos.x);
-            const cursor_pitch = self.pitchFromY(state.cursor_pos.y);
-            const section = editor.track.channels[selection.channel_index].sections[selection.section_index];
+pub fn respond(self: *PatternEditor, ctx: *Ctx, event: input.Event, section_coords: ?Timeline.SectionCoords) !void {
+    switch (event) {
+        .scroll => |scroll_event| {
+            self.scroll_amount = self.scroll_amount.add(scroll_event.amount.mul(6))
+                .min(.{ .x = tick_width * std.math.maxInt(u16), .y = @as(f32, pitch_height) * std.math.maxInt(u8) })
+                .max(.splat(0));
+            try ctx.queueRedraw();
+        },
+        .cursor => |cursor_event| if (section_coords) |coords| {
+            if (ctx.input.is_action_active(.pattern_editor_place_note))
+                switch (self.selection) {
+                    .note_end => |i| {
+                        const section = ctx.track.channels[coords.channel_index].sections[coords.section_index];
+                        const note = &ctx.track.patterns[section.pattern_index].notes[i];
+                        note.interval.last_tick = (@max(note.interval.first_tick, self.tickFromX(cursor_event.pos.x)) / self.tick_snap + 1) * self.tick_snap;
+                        ctx.queueRedraw();
+                    },
+                    else => {},
+                };
+        },
+        .button => if (section_coords) |coords| {
+            if (ctx.input.was_action_just_pressed(.pattern_editor_place_note)) {
+                const section = ctx.track.channels[coords.channel_index].sections[coords.section_index];
+                const cursor_tick = self.tickFromX(ctx.input.cursor_pos.x);
+                const cursor_pitch = self.pitchFromY(ctx.input.cursor_pos.y);
 
-            var notes_during_tick = editor.track.patterns[section.pattern_index]
-                .notesDuringTick(cursor_tick);
+                var notes_during_tick = ctx.track.patterns[section.pattern_index]
+                    .notesDuringTick(cursor_tick);
 
-            while (notes_during_tick.next()) |note|
-                if (note.pitch == cursor_pitch) {
-                    _ = try editor.do(.{ .remove_note = .{
+                while (notes_during_tick.next()) |note|
+                    if (note.pitch == cursor_pitch) {
+                        _ = try ctx.do(.{ .remove_note = .{
+                            .pattern_index = section.pattern_index,
+                            .note_index = notes_during_tick.index - 1,
+                        } });
+                        ctx.queueRedraw();
+                        self.selection = .empty;
+                        return;
+                    };
+
+                const note_tick = cursor_tick / self.tick_snap * self.tick_snap;
+
+                self.selection = .{
+                    .note_end = (try ctx.do(.{ .insert_note = .{
                         .pattern_index = section.pattern_index,
-                        .note_index = notes_during_tick.index - 1,
-                    } });
-                    try editor.redraw();
-                    self.active_note_index = null;
-                    return;
+                        .note = .{
+                            .interval = .{ .first_tick = note_tick, .last_tick = note_tick + self.tick_snap },
+                            .pitch = cursor_pitch,
+                        },
+                    } })).remove_note.note_index,
                 };
 
-            const note_tick = cursor_tick / self.tick_snap * self.tick_snap;
-
-            self.active_note_index = (try editor.do(.{ .insert_note = .{
-                .pattern_index = section.pattern_index,
-                .note = .{
-                    .interval = .{ .first_tick = note_tick, .last_tick = note_tick + self.tick_snap },
-                    .pitch = cursor_pitch,
-                },
-            } })).remove_note.note_index;
-
-            try editor.redraw();
-        }
+                ctx.queueRedraw();
+            } else if (ctx.input.was_action_just_released(.pattern_editor_place_note))
+                self.selection = .empty;
+        },
     }
 }
 
 /// Draws the pattern editor.
-pub fn draw(self: PatternEditor, editor: *Editor) !void {
-    const renderer = &editor.renderer;
-    const selection = editor.timeline().selection orelse return;
-    const section = editor.track.channels[selection.channel_index].sections[selection.section_index];
-    const pattern = editor.track.patterns[section.pattern_index];
-
+pub fn draw(self: PatternEditor, renderer: *Renderer, ctx: *const Ctx, section_coords: ?Timeline.SectionCoords) !void {
     const pitch_at_top = self.pitchAtTop();
     // const tick_at_left = self.tickAtLeft();
 
@@ -122,6 +131,10 @@ pub fn draw(self: PatternEditor, editor: *Editor) !void {
     }
 
     // Draws section end line
+
+    const coords = section_coords orelse return;
+    const section = ctx.track.channels[coords.channel_index].sections[coords.section_index];
+    const pattern = ctx.track.patterns[section.pattern_index];
 
     try renderer.switchColor(.fromHexRgb(0x302c2e));
     try renderer.drawSpriteStretch(.blank, .{

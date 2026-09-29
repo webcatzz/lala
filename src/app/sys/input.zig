@@ -1,4 +1,4 @@
-const math = @import("math.zig");
+const math = @import("../util/math.zig");
 const std = @import("std");
 
 /// Describes input performed by the user.

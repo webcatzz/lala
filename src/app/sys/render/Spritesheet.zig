@@ -6,7 +6,7 @@
 //!
 //! Individual sprites are identified by a unique `Sprite` variant.
 
-const math = @import("../math.zig");
+const math = @import("../../util/math.zig");
 const Renderer = @import("Renderer.zig");
 const sdl = @import("sdl");
 const std = @import("std");

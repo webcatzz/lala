@@ -28,6 +28,8 @@ pub const area = width * height;
 pub const Sprite = enum(u8) {
     /// A blank white sprite.
     blank,
+    /// A simple border sprite.
+    debug_border,
 
     // Common UI elements
 

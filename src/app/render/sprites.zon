@@ -3,6 +3,10 @@
         .rect = .{ .x = 1, .y = 1, .w = 1, .h = 1 },
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
+    .debug_border = .{
+        .rect = .{ .x = 7, .y = 1, .w = 3, .h = 3 },
+        .border = .{ .left = 1, .right = 1, .top = 1, .bottom = 1 },
+    },
     .frame = .{
         .rect = .{ .x = 49, .y = 65, .w = 7, .h = 16 },
         .border = .{ .left = 3, .right = 3, .top = 12, .bottom = 3 },

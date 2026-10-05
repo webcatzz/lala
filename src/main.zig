@@ -13,5 +13,5 @@ pub fn main(init: std.process.Init) !void {
 // Test imports
 
 test {
-    _ = @import("app/sys/Ui.zig");
+    _ = @import("app/ctx/TrackEdit.zig");
 }

@@ -18,7 +18,7 @@ pub const Action = union(enum) {
     load_track: struct { edit: TrackEdit },
 
     /// Inserts a channel into the current track.
-    insert_channel: struct { channel_index: u8, channel: Track.Channel },
+    insert_channel: struct { channel_index: u8, channel: TrackEdit.ChannelOptions },
     /// Removes a channel from the current track.
     remove_channel: struct { channel_index: u8 },
 
@@ -34,7 +34,7 @@ pub const Action = union(enum) {
     /// Sets the interval occupied by a note.
     set_note_interval: struct { pattern_index: u8, note_index: u8, interval: Track.Interval(Track.Pattern.Tick) },
     /// Sets the pitch of a note.
-    set_note_pitch: struct { pattern_index: u8, note_index: u8, pitch: Track.Note.Pitch },
+    set_note_pitch: struct { pattern_index: u8, note_index: u8, pitch: u8 },
     /// Sets the volume of a note.
     set_note_volume: struct { pattern_index: u8, note_index: u8, volume: u4 },
 
@@ -53,17 +53,19 @@ pub const Action = union(enum) {
             },
 
             .insert_channel => |args| {
-                const channel_index = try edit.insertChannel(gpa, args.channel, args.channel_index);
-                return .{ .remove_channel = .{ .channel_index = channel_index } };
+                try edit.insertChannel(gpa, args.channel, args.channel_index);
+                return .{ .remove_channel = .{ .channel_index = args.channel_index } };
             },
             .remove_channel => |args| {
                 const channel = edit.removeChannel(args.channel_index);
-                return .{ .insert_channel = .{ .channel_index = args.channel_index, .channel = channel } };
+                return .{ .insert_channel = .{ .channel_index = args.channel_index, .channel = .{
+                    .instrument = channel.instrument,
+                } } };
             },
 
             .insert_section => |args| {
                 const section_index = try edit.insertSection(gpa, args.channel_index, args.section);
-                return .{ .remove_section = .{ .channel_index = args.channel_index, .section_index = section_index } };
+                return .{ .remove_section = .{ .channel_index = args.channel_index, .section_index = @intCast(section_index) } };
             },
             .remove_section => |args| {
                 const section = edit.removeSection(args.channel_index, args.section_index);
@@ -72,7 +74,7 @@ pub const Action = union(enum) {
 
             .insert_note => |args| {
                 const note_index = try edit.insertNote(gpa, args.pattern_index, args.note);
-                return .{ .remove_note = .{ .pattern_index = args.pattern_index, .note_index = note_index } };
+                return .{ .remove_note = .{ .pattern_index = args.pattern_index, .note_index = @intCast(note_index) } };
             },
             .remove_note => |args| {
                 const note = edit.removeNote(args.pattern_index, args.note_index);
@@ -322,7 +324,7 @@ pub fn deinit(self: ActionBus, gpa: std.mem.Allocator) void {
 /// Returns an opposite action which will undo the effects of performing the
 /// given action.
 pub fn do(self: *ActionBus, ctx: *Ctx, action: Action) !Action {
-    const opp_action = try action.do(ctx);
+    const opp_action = try action.do(ctx.gpa, &ctx.track_edit);
     self.undo_stack.push(opp_action);
     return opp_action;
 }
@@ -333,7 +335,7 @@ pub fn do(self: *ActionBus, ctx: *Ctx, action: Action) !Action {
 pub fn undo(self: *ActionBus, ctx: *Ctx) !bool {
     const action = self.undo_stack.pop() orelse
         return false;
-    self.redo_stack.push(try action.do(ctx));
+    self.redo_stack.push(try action.do(ctx.gpa, &ctx.track_edit));
     return true;
 }
 

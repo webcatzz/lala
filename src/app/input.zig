@@ -1,17 +1,30 @@
-const math = @import("../util/math.zig");
+const math = @import("util/math.zig");
 const std = @import("std");
 
 /// Describes input performed by the user.
 pub const Event = union(enum) {
     /// A button is pressed or released.
     button: struct { button: Button, is_pressed: bool },
-    /// The cursor is moved.
+    /// The cursor is moved to some position.
     cursor: struct { pos: math.Vec2(f32) },
-    /// A wheel is scrolled.
+    /// A wheel is scrolled by some amount.
     scroll: struct { amount: math.Vec2(f32) },
 };
 
 /// A button the user might press.
+///
+/// Buttons' values respect the following properties:
+///
+/// - Buttons' values follow the same order as in their corresponding [USB
+///   HID usage table].
+/// - Buttons whose usage IDs are adjacent also have adjacent values.
+///
+/// This is so that contiguous ranges of usage IDs can be converted to `Button`s
+/// and vice versa with a simple offset. However, nothing is guaranteed about
+/// buttons' exact values.
+///
+/// [USB HID usage table]:
+///     https://www.usb.org/sites/default/files/hut1_7.pdf
 pub const Button = enum {
     /// The 'A' key.
     key_a,
@@ -65,8 +78,6 @@ pub const Button = enum {
     key_y,
     /// The 'Z' key.
     key_z,
-    /// The '`' key.
-    key_backtick,
     /// The '1' key.
     key_1,
     /// The '2' key.
@@ -87,38 +98,64 @@ pub const Button = enum {
     key_9,
     /// The '0' key.
     key_0,
-    /// The `-` key.
-    key_minus,
-    /// The `+` key.
-    key_plus,
-    /// The left arrow key.
-    key_left,
-    /// The right arrow key.
-    key_right,
-    /// The up arrow key.
-    key_up,
-    /// The down arrow key.
-    key_down,
-    /// The space key.
-    key_space,
-    /// The return key.
+    /// The return or enter key.
     key_return,
     /// The escape key.
     key_escape,
+    /// The delete or backspace key.
+    key_delete,
     /// The tab key.
     key_tab,
-    /// The left shift key.
-    key_lshift,
-    /// The right shift key.
-    key_rshift,
+    /// The space key.
+    key_space,
+    /// The `-` or '_' key.
+    key_minus,
+    /// The '=' or `+` key.
+    key_equals,
+    /// The '[' or '{' key.
+    key_lbracket,
+    /// The ']' or '}' key.
+    key_rbracket,
+    /// The '\' or '|' key.
+    key_backslash,
+    /// The ';' or ':' key.
+    key_semicolon,
+    /// The '\'' or '"' key.
+    key_apostrophe,
+    /// The '`' or '~' key.
+    key_grave,
+    /// The ',' or '<' key.
+    key_comma,
+    /// The '.' or '>' key.
+    key_period,
+    /// The '/' or '?' key.
+    key_slash,
+    /// The caps lock key.
+    key_capslock,
+    /// The right arrow key.
+    key_right,
+    /// The left arrow key.
+    key_left,
+    /// The down arrow key.
+    key_down,
+    /// The up arrow key.
+    key_up,
     /// The left control key.
     key_lctrl,
+    /// The left shift key.
+    key_lshift,
+    /// The left alt key.
+    key_lalt,
+    /// The left Windows key on Windows or command key on MacOS.
+    key_lgui,
     /// The right control key.
     key_rctrl,
-    /// The left command key on MacOS.
-    key_lsuper,
-    /// The right command key on MacOS.
-    key_rsuper,
+    /// The right shift key.
+    key_rshift,
+    /// The right alt key.
+    key_ralt,
+    /// The right Windows key on Windows or command key on MacOS.
+    key_rgui,
 
     /// The left mouse button.
     mouse_left,
@@ -126,16 +163,61 @@ pub const Button = enum {
     mouse_right,
     /// The middle mouse button.
     mouse_middle,
+
+    /// Returns the button corresponding to the given key code, if any.
+    ///
+    /// Based off the [USB HID usage table].
+    ///
+    /// [USB HID usage table]:
+    ///     https://www.usb.org/sites/default/files/hut1_7.pdf#page=90
+    pub fn fromKeyCode(code: u16) ?Button {
+        return switch (code) {
+            0x04...0x31 => @enumFromInt(code - 0x04 + @intFromEnum(Button.key_a)),
+            0x33...0x39 => @enumFromInt(code - 0x33 + @intFromEnum(Button.key_semicolon)),
+            0x4f...0x52 => @enumFromInt(code - 0x4f + @intFromEnum(Button.key_right)),
+            0xe0...0xe7 => @enumFromInt(code - 0xe0 + @intFromEnum(Button.key_lctrl)),
+            else => null,
+        };
+    }
+
+    /// Returns the button corresponding to the given mouse button code, if
+    /// any.
+    ///
+    /// Based off the [USB HID usage table].
+    ///
+    /// [USB HID usage table]:
+    ///     https://www.usb.org/sites/default/files/hut1_7.pdf#page=111
+    pub fn fromMouseCode(code: u16) ?Button {
+        return switch (code) {
+            0x01...0x03 => @enumFromInt(code - 0x01 + @intFromEnum(Button.mouse_left)),
+            else => null,
+        };
+    }
 };
 
 /// A bitmask of buttons commonly used as modifiers.
 pub const ModButtons = packed struct {
     shift: Req = .ignore,
     ctrl: Req = .ignore,
-    super: Req = .ignore,
+    alt: Req = .ignore,
+    gui: Req = .ignore,
 
     /// A requirement for the state of modifier buttons.
-    const Req = enum(u2) { ignore, either, only_left, only_right };
+    const Req = enum(u2) {
+        ignore = 0b00,
+        only_left = 0b10,
+        only_right = 0b01,
+        either = 0b11,
+
+        /// Returns `true` if the given left and right values satisfy the
+        /// requirement.
+        pub fn matches(self: Req, l: bool, r: bool) bool {
+            return if (self == .ignore)
+                true
+            else
+                @intFromEnum(self) & ((@as(u2, @intFromBool(l)) << 1) | @intFromBool(r)) != 0;
+        }
+    };
 };
 
 /// An input action the user might perform.
@@ -164,8 +246,8 @@ pub const Action = enum {
     /// Editor playback should be played or paused.
     editor_toggle_playback,
 
-    /// A note should be placed in the pattern editor.
-    pattern_editor_place_note,
+    /// A note should be placed in the piano roll.
+    piano_roll_place_note,
 
     /// A section should be placed in the timeline.
     timeline_place_section,
@@ -195,11 +277,11 @@ pub const State = struct {
         state.bind(.ui_prev, .key_tab, .{ .shift = .either });
         state.bind(.ui_next, .key_tab, .{});
 
-        state.bind(.editor_undo, .key_z, .{ .super = .either });
-        state.bind(.editor_redo, .key_z, .{ .super = .either, .shift = .either });
+        state.bind(.editor_undo, .key_z, .{ .gui = .either });
+        state.bind(.editor_redo, .key_z, .{ .gui = .either, .shift = .either });
         state.bind(.editor_toggle_playback, .key_space, .{});
 
-        state.bind(.pattern_editor_place_note, .mouse_left, .{});
+        state.bind(.piano_roll_place_note, .mouse_left, .{});
 
         state.bind(.timeline_place_section, .mouse_left, .{});
 
@@ -238,22 +320,10 @@ pub const State = struct {
 
     /// Returns `true` if the given modifier buttons are recorded as pressed.
     pub fn are_mod_buttons_pressed(self: State, mod_buttons: ModButtons) bool {
-        return switch (mod_buttons.shift) {
-            .ignore => true,
-            .only_left => self.is_button_pressed(.key_lshift),
-            .only_right => self.is_button_pressed(.key_rshift),
-            .either => self.is_button_pressed(.key_lshift) or self.is_button_pressed(.key_rshift),
-        } and switch (mod_buttons.ctrl) {
-            .ignore => true,
-            .only_left => self.is_button_pressed(.key_lctrl),
-            .only_right => self.is_button_pressed(.key_rctrl),
-            .either => self.is_button_pressed(.key_lctrl) or self.is_button_pressed(.key_rctrl),
-        } and switch (mod_buttons.super) {
-            .ignore => true,
-            .only_left => self.is_button_pressed(.key_lsuper),
-            .only_right => self.is_button_pressed(.key_rsuper),
-            .either => self.is_button_pressed(.key_lsuper) or self.is_button_pressed(.key_rsuper),
-        };
+        return mod_buttons.shift.matches(self.is_button_pressed(.key_lshift), self.is_button_pressed(.key_rshift)) and
+            mod_buttons.ctrl.matches(self.is_button_pressed(.key_lctrl), self.is_button_pressed(.key_rctrl)) and
+            mod_buttons.alt.matches(self.is_button_pressed(.key_lalt), self.is_button_pressed(.key_ralt)) and
+            mod_buttons.gui.matches(self.is_button_pressed(.key_lgui), self.is_button_pressed(.key_rgui));
     }
 
     /// Returns `true` if the given action is recorded as active.

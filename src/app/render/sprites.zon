@@ -3,13 +3,17 @@
         .rect = .{ .x = 1, .y = 1, .w = 1, .h = 1 },
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
-    .line = .{
-        .rect = .{ .x = 3, .y = 19, .w = 1, .h = 6 },
-        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 1 },
+    .frame = .{
+        .rect = .{ .x = 49, .y = 65, .w = 7, .h = 16 },
+        .border = .{ .left = 3, .right = 3, .top = 12, .bottom = 3 },
     },
-    .line_hover = .{
-        .rect = .{ .x = 5, .y = 19, .w = 2, .h = 6 },
-        .border = .{ .left = 0, .right = 0, .top = 1, .bottom = 0 },
+    .input_number = .{
+        .rect = .{ .x = 63, .y = 65, .w = 25, .h = 11 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .line = .{
+        .rect = .{ .x = 3, .y = 19, .w = 2, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 1 },
     },
     .note = .{
         .rect = .{ .x = 3, .y = 1, .w = 3, .h = 3 },
@@ -303,6 +307,34 @@
         .rect = .{ .x = 14, .y = 5, .w = 10, .h = 6 },
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
+    .scroll_down = .{
+        .rect = .{ .x = 57, .y = 88, .w = 5, .h = 5 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .scroll_left = .{
+        .rect = .{ .x = 57, .y = 101, .w = 4, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .scroll_right = .{
+        .rect = .{ .x = 57, .y = 94, .w = 4, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .scroll_thumb = .{
+        .rect = .{ .x = 57, .y = 65, .w = 5, .h = 4 },
+        .border = .{ .left = 1, .right = 1, .top = 1, .bottom = 2 },
+    },
+    .scroll_thumb_marks = .{
+        .rect = .{ .x = 57, .y = 70, .w = 5, .h = 5 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .scroll_track = .{
+        .rect = .{ .x = 57, .y = 76, .w = 5, .h = 5 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .scroll_up = .{
+        .rect = .{ .x = 57, .y = 82, .w = 5, .h = 5 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
     .section = .{
         .rect = .{ .x = 25, .y = 1, .w = 11, .h = 8 },
         .border = .{ .left = 2, .right = 2, .top = 5, .bottom = 2 },
@@ -314,5 +346,29 @@
     .selection_outline = .{
         .rect = .{ .x = 25, .y = 10, .w = 7, .h = 7 },
         .border = .{ .left = 3, .right = 3, .top = 3, .bottom = 3 },
+    },
+    .sheet_line = .{
+        .rect = .{ .x = 21, .y = 65, .w = 1, .h = 4 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .sheet_note_empty = .{
+        .rect = .{ .x = 1, .y = 65, .w = 4, .h = 4 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .sheet_note_flag = .{
+        .rect = .{ .x = 13, .y = 65, .w = 3, .h = 7 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .sheet_note_flag_chain = .{
+        .rect = .{ .x = 17, .y = 65, .w = 3, .h = 6 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .sheet_note_full = .{
+        .rect = .{ .x = 6, .y = 65, .w = 4, .h = 4 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
+    },
+    .sheet_note_stem = .{
+        .rect = .{ .x = 11, .y = 65, .w = 1, .h = 1 },
+        .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
 }

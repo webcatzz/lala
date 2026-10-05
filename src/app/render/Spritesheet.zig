@@ -6,16 +6,16 @@
 //!
 //! Individual sprites are identified by a unique `Sprite` variant.
 
-const math = @import("../../util/math.zig");
+const math = @import("../util/math.zig");
 const Renderer = @import("Renderer.zig");
 const sdl = @import("sdl");
 const std = @import("std");
 const zlib = @import("zlib");
 
+const Spritesheet = @This();
+
 /// The SDL GPU texture used to store the spritesheet.
 _gpu_texture: *sdl.SDL_GPUTexture,
-
-const Spritesheet = @This();
 
 /// The width of the spritesheet, in pixels.
 pub const width = 255;
@@ -29,160 +29,184 @@ pub const Sprite = enum(u8) {
     /// A blank white sprite.
     blank,
 
-    note,
-    line,
-    line_hover,
+    // Common UI elements
+
+    frame,
+    scroll_thumb,
+    scroll_thumb_marks,
+    scroll_track,
+    scroll_up,
+    scroll_down,
+    scroll_left,
+    scroll_right,
+    input_number,
+    selection_outline,
+
+    // Piano roll
+
     piano_key_white,
     piano_key_white_held,
     piano_key_black,
     piano_key_black_held,
+    note,
+    line,
+
+    // Timeline
+
     section,
     section_drag_indicator,
-    selection_outline,
 
-    // Characters in the "pebble font". Characters in base ASCII are represented
-    // with their value in base ASCII plus the value of `pebble_base`. Other
-    // characters' values are unspecified.
+    // Sheet music symbols
+
+    sheet_note_empty,
+    sheet_note_full,
+    sheet_note_stem,
+    sheet_note_flag,
+    sheet_note_flag_chain,
+    sheet_line,
+
+    // Characters in the "pebble" font. Base ASCII characters are represented
+    // with their ASCII value plus the value of `pebble_base`.
 
     /// The '!' character in the "pebble" font.
     pebble_exclamation_mark = pebble_base + 1,
     /// The '"' character in the "pebble" font.
-    pebble_quote = pebble_base + 2,
+    pebble_quote,
     /// The '#' character in the "pebble" font.
-    pebble_hash = pebble_base + 3,
+    pebble_hash,
     /// The '$' character in the "pebble" font.
-    pebble_dollar = pebble_base + 4,
+    pebble_dollar,
     /// The '%' character in the "pebble" font.
-    pebble_percent = pebble_base + 5,
+    pebble_percent,
     /// The '&' character in the "pebble" font.
-    pebble_ampersand = pebble_base + 6,
+    pebble_ampersand,
     /// The ''' character in the "pebble" font.
-    pebble_apostrophe = pebble_base + 7,
+    pebble_apostrophe,
     /// The '(' character in the "pebble" font.
-    pebble_lparen = pebble_base + 8,
+    pebble_lparen,
     /// The ')' character in the "pebble" font.
-    pebble_rparen = pebble_base + 9,
+    pebble_rparen,
     /// The '*' character in the "pebble" font.
-    pebble_star = pebble_base + 10,
+    pebble_star,
     /// The '+' character in the "pebble" font.
-    pebble_plus = pebble_base + 11,
+    pebble_plus,
     /// The ',' character in the "pebble" font.
-    pebble_comma = pebble_base + 12,
+    pebble_comma,
     /// The '-' character in the "pebble" font.
-    pebble_hyphen = pebble_base + 13,
+    pebble_hyphen,
     /// The '.' character in the "pebble" font.
-    pebble_period = pebble_base + 14,
+    pebble_period,
     /// The '/' character in the "pebble" font.
-    pebble_slash = pebble_base + 15,
+    pebble_slash,
     /// The '0' character in the "pebble" font.
-    pebble_0 = pebble_base + 16,
+    pebble_0,
     /// The '1' character in the "pebble" font.
-    pebble_1 = pebble_base + 17,
+    pebble_1,
     /// The '2' character in the "pebble" font.
-    pebble_2 = pebble_base + 18,
+    pebble_2,
     /// The '3' character in the "pebble" font.
-    pebble_3 = pebble_base + 19,
+    pebble_3,
     /// The '4' character in the "pebble" font.
-    pebble_4 = pebble_base + 20,
+    pebble_4,
     /// The '5' character in the "pebble" font.
-    pebble_5 = pebble_base + 21,
+    pebble_5,
     /// The '6' character in the "pebble" font.
-    pebble_6 = pebble_base + 22,
+    pebble_6,
     /// The '7' character in the "pebble" font.
-    pebble_7 = pebble_base + 23,
+    pebble_7,
     /// The '8' character in the "pebble" font.
-    pebble_8 = pebble_base + 24,
+    pebble_8,
     /// The '9' character in the "pebble" font.
-    pebble_9 = pebble_base + 25,
+    pebble_9,
     /// The ':' character in the "pebble" font.
-    pebble_colon = pebble_base + 26,
+    pebble_colon,
     /// The ';' character in the "pebble" font.
-    pebble_semicolon = pebble_base + 27,
+    pebble_semicolon,
     /// The '<' character in the "pebble" font.
-    pebble_lt = pebble_base + 28,
+    pebble_lt,
     /// The '=' character in the "pebble" font.
-    pebble_eq = pebble_base + 29,
+    pebble_eq,
     /// The '>' character in the "pebble" font.
-    pebble_gt = pebble_base + 30,
+    pebble_gt,
     /// The '?' character in the "pebble" font.
-    pebble_question_mark = pebble_base + 31,
+    pebble_question_mark,
     /// The '@' character in the "pebble" font.
-    pebble_at = pebble_base + 32,
+    pebble_at,
     /// The 'a' character in the "pebble" font.
-    pebble_a = pebble_base + 33,
+    pebble_a,
     /// The 'b' character in the "pebble" font.
-    pebble_b = pebble_base + 34,
+    pebble_b,
     /// The 'c' character in the "pebble" font.
-    pebble_c = pebble_base + 35,
+    pebble_c,
     /// The 'd' character in the "pebble" font.
-    pebble_d = pebble_base + 36,
+    pebble_d,
     /// The 'e' character in the "pebble" font.
-    pebble_e = pebble_base + 37,
+    pebble_e,
     /// The 'f' character in the "pebble" font.
-    pebble_f = pebble_base + 38,
+    pebble_f,
     /// The 'g' character in the "pebble" font.
-    pebble_g = pebble_base + 39,
+    pebble_g,
     /// The 'h' character in the "pebble" font.
-    pebble_h = pebble_base + 40,
+    pebble_h,
     /// The 'i' character in the "pebble" font.
-    pebble_i = pebble_base + 41,
+    pebble_i,
     /// The 'j' character in the "pebble" font.
-    pebble_j = pebble_base + 42,
+    pebble_j,
     /// The 'k' character in the "pebble" font.
-    pebble_k = pebble_base + 43,
+    pebble_k,
     /// The 'l' character in the "pebble" font.
-    pebble_l = pebble_base + 44,
+    pebble_l,
     /// The 'm' character in the "pebble" font.
-    pebble_m = pebble_base + 45,
+    pebble_m,
     /// The 'n' character in the "pebble" font.
-    pebble_n = pebble_base + 46,
+    pebble_n,
     /// The 'o' character in the "pebble" font.
-    pebble_o = pebble_base + 47,
+    pebble_o,
     /// The 'p' character in the "pebble" font.
-    pebble_p = pebble_base + 48,
+    pebble_p,
     /// The 'q' character in the "pebble" font.
-    pebble_q = pebble_base + 49,
+    pebble_q,
     /// The 'r' character in the "pebble" font.
-    pebble_r = pebble_base + 50,
+    pebble_r,
     /// The 's' character in the "pebble" font.
-    pebble_s = pebble_base + 51,
+    pebble_s,
     /// The 't' character in the "pebble" font.
-    pebble_t = pebble_base + 52,
+    pebble_t,
     /// The 'u' character in the "pebble" font.
-    pebble_u = pebble_base + 53,
+    pebble_u,
     /// The 'v' character in the "pebble" font.
-    pebble_v = pebble_base + 54,
+    pebble_v,
     /// The 'w' character in the "pebble" font.
-    pebble_w = pebble_base + 55,
+    pebble_w,
     /// The 'x' character in the "pebble" font.
-    pebble_x = pebble_base + 56,
+    pebble_x,
     /// The 'y' character in the "pebble" font.
-    pebble_y = pebble_base + 57,
+    pebble_y,
     /// The 'z' character in the "pebble" font.
-    pebble_z = pebble_base + 58,
+    pebble_z,
     /// The '[' character in the "pebble" font.
-    pebble_lbracket = pebble_base + 59,
+    pebble_lbracket,
     /// The '\' character in the "pebble" font.
-    pebble_backslash = pebble_base + 60,
+    pebble_backslash,
     /// The ']' character in the "pebble" font.
-    pebble_rbracket = pebble_base + 61,
+    pebble_rbracket,
     /// The '^' character in the "pebble" font.
-    pebble_caret = pebble_base + 62,
+    pebble_caret,
     /// The '_' character in the "pebble" font.
-    pebble_underscore = pebble_base + 63,
+    pebble_underscore,
     /// The '`' character in the "pebble" font.
-    pebble_backtick = pebble_base + 64,
+    pebble_backtick,
     /// The '{' character in the "pebble" font.
     pebble_lbrace = pebble_base + 91,
     /// The '|' character in the "pebble" font.
-    pebble_pipe = pebble_base + 92,
+    pebble_pipe,
     /// The '}' character in the "pebble" font.
-    pebble_rbrace = pebble_base + 93,
+    pebble_rbrace,
     /// The '~' character in the "pebble" font.
-    pebble_tilde = pebble_base + 94,
+    pebble_tilde,
 
     /// Sprite information.
-    pub const Info = struct {
+    const Info = struct {
         /// The rectangle occupied by the sprite, in pixels.
         rect: math.Rect(u8),
         /// The widths of the borders of the sprite.
@@ -193,13 +217,16 @@ pub const Sprite = enum(u8) {
     };
 
     /// Information for each sprite.
-    pub const info: std.EnumArray(Sprite, Info) = .init(@import("sprites.zon"));
+    const db: std.EnumArray(Sprite, Info) = .init(@import("sprites.zon"));
 
     /// The starting value from which printable base ASCII "pebble" characters
     /// (codes 32 through 127) are enumerated.
     const pebble_base = 64;
-    const pebble_rect_x = 160;
-    const pebble_rect_y = 0;
+
+    /// Returns information for the given sprite.
+    pub fn info(self: Sprite) Info {
+        return db.get(self);
+    }
 
     /// Returns the sprite corresponding to the given character in the "pebble"
     /// font, if any.

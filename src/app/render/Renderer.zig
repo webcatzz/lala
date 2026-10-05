@@ -6,7 +6,7 @@
 //! 2. `render` is called to render them to a window.
 
 const builtin = @import("builtin");
-const math = @import("../../util/math.zig");
+const math = @import("../util/math.zig");
 const sdl = @import("sdl");
 const std = @import("std");
 
@@ -181,8 +181,8 @@ pub fn clear(self: *Renderer) void {
 }
 
 /// Sets the scale multiplier applied to subsequent draw operations.
-pub fn switchScale(self: *Renderer, scale: math.Vec2(f32)) void {
-    self._scale = scale;
+pub fn switchScale(self: *Renderer, x: f32, y: f32) void {
+    self._scale = .{ .x = x, .y = y };
 }
 
 /// Sets the color multiplier applied to subsequent draw operations.
@@ -265,7 +265,7 @@ pub fn drawRegion9Patch(
 
 /// Draws the given sprite with its top-left corner at the given position.
 pub fn drawSprite(self: *Renderer, sprite: Spritesheet.Sprite, pos: math.Vec2(f32)) !void {
-    const sprite_info = Spritesheet.Sprite.info.get(sprite);
+    const sprite_info = sprite.info();
     try self.drawRegion(sprite_info.rect, .{
         .x = pos.x,
         .y = pos.y,
@@ -276,13 +276,55 @@ pub fn drawSprite(self: *Renderer, sprite: Spritesheet.Sprite, pos: math.Vec2(f3
 
 /// Draws the given sprite stretched to fill the given rectangle.
 pub fn drawSpriteStretch(self: *Renderer, sprite: Spritesheet.Sprite, rect: math.Rect(f32)) !void {
-    const sprite_info = Spritesheet.Sprite.info.get(sprite);
-    try self.drawRegion(sprite_info.rect, rect);
+    try self.drawRegion(sprite.info().rect, rect);
+}
+
+pub fn drawSpriteRepeat(self: *Renderer, sprite: Spritesheet.Sprite, rect: math.Rect(f32)) !void {
+    const sprite_rect = Spritesheet.Sprite.info.get(sprite).rect;
+
+    const x_fit = rect.w / sprite_rect.w;
+    const y_fit = rect.h / sprite_rect.h;
+    const x_repeat_count: u16 = @trunc(x_fit);
+    const y_repeat_count: u16 = @trunc(y_fit);
+    const x_repeat_fr = x_fit - x_repeat_count;
+    const y_repeat_fr = y_fit - y_repeat_count;
+
+    for (0..x_repeat_count) |x|
+        for (0..y_repeat_count) |y|
+            try self.drawRegion(sprite_rect, .{
+                .x = rect.x + sprite_rect.w * @as(f32, @floatFromInt(x)),
+                .y = rect.y + sprite_rect.h * @as(f32, @floatFromInt(y)),
+                .w = sprite_rect.w,
+                .h = sprite_rect.h,
+            });
+
+    for (0..x_repeat_count) |x|
+        try self.drawRegion(sprite_rect, .{
+            .x = rect.x + sprite_rect.w * @as(f32, @floatFromInt(x)),
+            .y = rect.y + sprite_rect.h * y_repeat_count,
+            .w = sprite_rect.w,
+            .h = sprite_rect.h * y_repeat_fr,
+        });
+
+    for (0..y_repeat_count) |y|
+        try self.drawRegion(sprite_rect, .{
+            .x = rect.x + sprite_rect.w * x_repeat_count,
+            .y = rect.y + sprite_rect.h * @as(f32, @floatFromInt(y)),
+            .w = sprite_rect.w * x_repeat_fr,
+            .h = sprite_rect.h,
+        });
+
+    try self.drawRegion(sprite_rect, .{
+        .x = rect.x + sprite_rect.w * x_repeat_count,
+        .y = rect.y + sprite_rect.h * y_repeat_count,
+        .w = sprite_rect.w * x_repeat_fr,
+        .h = sprite_rect.h * y_repeat_fr,
+    });
 }
 
 /// Draws the given sprite as a nine-patch filling the given rectangle.
 pub fn drawSprite9Patch(self: *Renderer, sprite: Spritesheet.Sprite, rect: math.Rect(f32)) !void {
-    const sprite_info = Spritesheet.Sprite.info.get(sprite);
+    const sprite_info = sprite.info();
     try self.drawRegion9Patch(sprite_info.rect, sprite_info.border, rect);
 }
 
@@ -301,7 +343,7 @@ pub fn print(self: *Renderer, text: []const u8, pos: math.Vec2(f32), color: math
             },
             else => if (Spritesheet.Sprite.pebble(char)) |sprite| {
                 try self.drawSprite(sprite, .{ .x = x, .y = y });
-                x += Spritesheet.Sprite.info.get(sprite).rect.w + 1;
+                x += sprite.info().rect.w + 1;
             },
         };
 

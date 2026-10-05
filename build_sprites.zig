@@ -1,6 +1,8 @@
 const std = @import("std");
 
-pub const SpriteInfo = struct {
+const dst_path = "src/app/render/sprites.zon";
+
+const SpriteInfo = struct {
     name: []const u8,
     x: u8,
     y: u8,
@@ -123,7 +125,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Opens output file
 
-    const output_file = try std.Io.Dir.cwd().createFile(io, "src/render/sprites.zon", .{});
+    const output_file = try std.Io.Dir.cwd().createFile(io, dst_path, .{});
     defer output_file.close(io);
 
     var output_file_writer = output_file.writer(io, &file_buf);
@@ -145,5 +147,5 @@ pub fn main(init: std.process.Init) !void {
     try writer.writeAll("}\n");
     try writer.flush();
 
-    std.log.info("Wrote sprites", .{});
+    std.log.info("Wrote {} sprites", .{sprite_info.items.len});
 }

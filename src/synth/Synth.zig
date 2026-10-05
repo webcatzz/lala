@@ -1,5 +1,6 @@
 //! Synthesizes audio from track data.
 
+const pitch = @import("pitch.zig");
 const std = @import("std");
 const Track = @import("Track.zig");
 
@@ -24,12 +25,10 @@ const Synth = @This();
 /// The synth is owned by the caller and should be freed by calling `deinit`.
 pub fn init(gpa: std.mem.Allocator) !Synth {
     var channels: std.ArrayList(Channel) = try .initCapacity(gpa, 32);
-    channels.items.len = channels.capacity;
-    @memset(channels.items, .{ .notes = .empty });
+    @memset(channels.allocatedSlice(), .{ .notes = .empty });
     errdefer {
-        for (channels.items) |*channel|
-            if (channel.notes.capacity != 0)
-                channel.notes.deinit(gpa);
+        for (channels.allocatedSlice()) |*channel|
+            channel.notes.deinit(gpa);
         channels.deinit(gpa);
     }
 
@@ -45,7 +44,7 @@ pub fn init(gpa: std.mem.Allocator) !Synth {
 ///
 /// The synth should not be used after this function is called.
 pub fn deinit(self: *Synth, gpa: std.mem.Allocator) void {
-    for (self.channels.items) |*channel|
+    for (self.channels.allocatedSlice()) |*channel|
         channel.notes.deinit(gpa);
     self.channels.deinit(gpa);
 }
@@ -122,7 +121,7 @@ const Channel = struct {
 };
 
 const Note = struct {
-    pitch: Track.Note.Pitch,
+    pitch: u8,
     volume: f32 = 1,
 
     /// Updates the note for the given tick.
@@ -134,7 +133,7 @@ const Note = struct {
     /// Synthesizes audio for the current tick into the given output buffer.
     fn synth(self: *Note, instrument: Track.Instrument, sample_offset: usize, sample_rate: u32, output: []f32) void {
         for (output, 0..) |*sample, i| {
-            const phase = @as(f32, @floatFromInt(sample_offset + i)) * self.pitch.freq() / @as(f32, @floatFromInt(sample_rate));
+            const phase = @as(f32, @floatFromInt(sample_offset + i)) * pitch.freq(self.pitch) / @as(f32, @floatFromInt(sample_rate));
             const phase_fract = phase - @trunc(phase);
             sample.* += instrument.sample(phase_fract) * self.volume;
         }

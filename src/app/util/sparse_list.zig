@@ -43,6 +43,8 @@ pub fn SparseList(comptime T: type) type {
         }
 
         /// Sets the capacity of the list.
+        ///
+        /// New bits in the bitmask are zero-initialized.
         pub fn setCapacity(self: *Self, gpa: std.mem.Allocator, cap: usize) !void {
             const old_mask_count = maskCount(self.items.len);
             self.masks = (try gpa.realloc(self.masks[0..old_mask_count], maskCount(cap))).ptr;
@@ -66,6 +68,15 @@ pub fn SparseList(comptime T: type) type {
             self.masks[maskIndex(index)] &= ~maskBit(index);
         }
 
+        /// Returns the index of the first uninitialized item in the list, if
+        /// any.
+        pub fn firstUninit(self: Self) ?usize {
+            for (0..self.items.len) |i|
+                if (!self.isInit(i))
+                    return i;
+            return null;
+        }
+
         /// Sets the item with the given index to be the given item.
         pub fn set(self: *Self, index: usize, item: T) void {
             self.items[index] = item;
@@ -83,12 +94,10 @@ pub fn SparseList(comptime T: type) type {
         /// Attempts to insert the item into the first uninitialized location in
         /// the list. Allocates more memory if necessary.
         pub fn insert(self: *Self, gpa: std.mem.Allocator, item: T) !usize {
-            for (0..self.items.len) |i|
-                if (!self.isInit(i)) {
-                    self.markInit(i);
-                    self.items[i] = item;
-                    return i;
-                };
+            if (self.firstUninit()) |i| {
+                self.set(i, item);
+                return i;
+            }
 
             const next_i = self.items.len + 1;
             try self.setCapacity(gpa, std.ArrayList(T).growCapacity(next_i));

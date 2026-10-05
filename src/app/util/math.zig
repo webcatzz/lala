@@ -237,6 +237,38 @@ pub fn Rect(comptime T: type) type {
             return self.y + self.h;
         }
 
+        /// Returns the position of the rectangle along the given axis.
+        pub fn posAlong(self: Rect(T), axis: Axis) T {
+            return switch (axis) {
+                .x => self.x,
+                .y => self.y,
+            };
+        }
+
+        /// Returns the size of the rectangle along the given axis.
+        pub fn sizeAlong(self: Rect(T), axis: Axis) T {
+            return switch (axis) {
+                .x => self.w,
+                .y => self.h,
+            };
+        }
+
+        /// Sets the position of the rectangle along the given axis.
+        pub fn setPosAlong(self: *Rect(T), axis: Axis, v: T) void {
+            switch (axis) {
+                .x => self.x = v,
+                .y => self.y = v,
+            }
+        }
+
+        /// Sets the size of the rectangle along the given axis.
+        pub fn setSizeAlong(self: *Rect(T), axis: Axis, v: T) void {
+            switch (axis) {
+                .x => self.w = v,
+                .y => self.h = v,
+            }
+        }
+
         /// Returns the rectangle but with the given *x* position.
         pub fn withX(self: Rect(T), x: T) Rect(T) {
             var rect = self;
@@ -426,7 +458,15 @@ pub fn Color(comptime T: type) type {
     };
 }
 
-pub const Axis = enum { x, y };
+pub const Axis = enum {
+    x,
+    y,
+
+    /// Returns the perpendicular axis.
+    pub fn perp(self: Axis) Axis {
+        return @enumFromInt((@intFromEnum(self) + 1) % 1);
+    }
+};
 
 /// Remaps a value from one range to another, based on the given minimums and
 /// conversion multiplier.

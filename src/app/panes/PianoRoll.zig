@@ -122,9 +122,11 @@ pub fn draw(self: PianoRoll, renderer: *Renderer, ctx: Ctx) !void {
             .black => .piano_key_black,
         }, .{ .x = self.rect.x, .y = key_y });
 
+        try renderer.switchColor(.black);
         if (pitch.class(key_pitch) == .c)
             if (pitch.name(key_pitch)) |pitch_name|
-                try renderer.print(pitch_name, .{ .x = self.rect.x, .y = key_y }, .black);
+                try renderer.print(pitch_name, .{ .x = self.rect.x, .y = key_y });
+        try renderer.switchColor(.white);
     }
 
     // Draws lines

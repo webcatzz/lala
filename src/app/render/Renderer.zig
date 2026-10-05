@@ -328,11 +328,9 @@ pub fn drawSprite9Patch(self: *Renderer, sprite: Spritesheet.Sprite, rect: math.
     try self.drawRegion9Patch(sprite_info.rect, sprite_info.border, rect);
 }
 
-pub fn print(self: *Renderer, text: []const u8, pos: math.Vec2(f32), color: math.Color(u8)) !void {
+pub fn print(self: *Renderer, text: []const u8, pos: math.Vec2(f32)) !void {
     var x = pos.x;
     var y = pos.y;
-
-    try self.command_queue.switchColorAlloc(self.gpa, color);
 
     for (text) |char|
         switch (char) {
@@ -346,8 +344,6 @@ pub fn print(self: *Renderer, text: []const u8, pos: math.Vec2(f32), color: math
                 x += sprite.info().rect.w + 1;
             },
         };
-
-    try self.command_queue.switchColorAlloc(self.gpa, .white);
 }
 
 // Rendering

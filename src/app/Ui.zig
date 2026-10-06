@@ -227,6 +227,10 @@ pub fn paneConst(self: *const Ui, id: Pane.Id) *const Pane {
 // Common UI elements
 
 pub const frame = struct {
+    /// The widths of the borders of the frame.
+    pub const border = Renderer.Spritesheet.Sprite.frame.info().border;
+
+    /// Draws the frame
     pub fn draw(renderer: *Renderer, rect: math.Rect(f32)) !void {
         try renderer.drawSprite9Patch(.frame, rect);
     }

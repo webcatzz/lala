@@ -30,7 +30,7 @@ action_bus: ActionBus,
 /// The current input state.
 input: input_sys.State = .default,
 /// User configuration.
-config: Config,
+cfg: Config,
 
 /// The UI system.
 ui: Ui,
@@ -94,7 +94,7 @@ pub fn init(gpa: std.mem.Allocator) !Ctx {
         .synth = synth,
         .synth_output_buf = synth_output_buf,
         .action_bus = action_bus,
-        .config = .{},
+        .cfg = .{},
         .ui = ui,
         .root_pane = root_pane,
         .piano_roll = piano_roll,

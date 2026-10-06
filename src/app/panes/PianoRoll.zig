@@ -101,12 +101,21 @@ pub fn respond(self: *PianoRoll, ctx: *Ctx, event: input.Event) !void {
                 };
         },
         .scroll => |scroll_event| {
-            self.scroll_amount = self.scroll_amount.add(scroll_event.amount.mul(6))
-                .min(.{ .x = self.tick_width * std.math.maxInt(u16), .y = @as(f32, pitch_height) * std.math.maxInt(u8) })
-                .max(.splat(0));
+            self.scroll_amount = .{
+                .x = @max(minXScroll(), @min(maxXScroll(self.tick_width), self.scroll_amount.x + scroll_event.amount.x * 6)),
+                .y = @max(minYScroll(self.rect.h), @min(maxYScroll(), self.scroll_amount.y + scroll_event.amount.y * 6)),
+            };
             ctx.queueRedraw();
         },
     }
+}
+
+pub fn layOut(self: *PianoRoll, r: math.Rect(f32)) void {
+    self.rect = r;
+    self.scroll_amount = .{
+        .x = @max(minXScroll(), @min(maxXScroll(self.tick_width), self.scroll_amount.x)),
+        .y = @max(minYScroll(self.rect.h), @min(maxYScroll(), self.scroll_amount.y)),
+    };
 }
 
 /// Draws the piano roll.
@@ -142,14 +151,19 @@ pub fn draw(self: PianoRoll, renderer: *Renderer, ctx: Ctx) !void {
         .{
             .x = inner_rect.x + piano_key_width,
             .y = inner_rect.y,
-            .w = inner_rect.w - piano_key_width,
+            .w = inner_rect.w - piano_key_width - Ui.scrollbar.width,
             .h = inner_rect.h,
         },
     );
-}
 
-/// The menubar along the top of the piano roll.
-const bar = struct {};
+    const y_scroll = 1 - (self.scroll_amount.y - minYScroll(self.rect.h)) / (maxYScroll() - minYScroll(self.rect.h));
+    try Ui.scrollbar.drawVertical(renderer, y_scroll, .{
+        .x = inner_rect.endX() - Ui.scrollbar.width,
+        .y = inner_rect.y,
+        .w = Ui.scrollbar.width,
+        .h = inner_rect.h,
+    });
+}
 
 /// Draws piano keys in the given area.
 fn drawPianoKeys(
@@ -239,4 +253,20 @@ fn xFromTick(
     tick_width: f32,
 ) f32 {
     return (@as(f32, @floatFromInt(tick)) - @as(f32, @floatFromInt(tick_offset))) * tick_width;
+}
+
+fn minXScroll() f32 {
+    return 0;
+}
+
+fn maxXScroll(tick_width: f32) f32 {
+    return tick_width * std.math.maxInt(u16);
+}
+
+fn minYScroll(h: f32) f32 {
+    return h - pitch_height;
+}
+
+fn maxYScroll() f32 {
+    return @as(f32, pitch_height) * std.math.maxInt(u8);
 }

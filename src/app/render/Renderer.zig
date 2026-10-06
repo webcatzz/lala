@@ -279,8 +279,9 @@ pub fn drawSpriteStretch(self: *Renderer, sprite: Spritesheet.Sprite, rect: math
     try self.drawRegion(sprite.info().rect, rect);
 }
 
+/// Draws the given sprite repeated to fill the given rectangle.
 pub fn drawSpriteRepeat(self: *Renderer, sprite: Spritesheet.Sprite, rect: math.Rect(f32)) !void {
-    const sprite_rect = Spritesheet.Sprite.info.get(sprite).rect;
+    const sprite_rect = sprite.info().rect;
 
     const x_fit = rect.w / sprite_rect.w;
     const y_fit = rect.h / sprite_rect.h;

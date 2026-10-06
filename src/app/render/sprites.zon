@@ -312,15 +312,15 @@
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .scroll_down = .{
-        .rect = .{ .x = 57, .y = 88, .w = 5, .h = 5 },
+        .rect = .{ .x = 57, .y = 87, .w = 5, .h = 5 },
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .scroll_left = .{
-        .rect = .{ .x = 57, .y = 101, .w = 4, .h = 6 },
+        .rect = .{ .x = 57, .y = 100, .w = 4, .h = 6 },
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .scroll_right = .{
-        .rect = .{ .x = 57, .y = 94, .w = 4, .h = 6 },
+        .rect = .{ .x = 57, .y = 93, .w = 4, .h = 6 },
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .scroll_thumb = .{
@@ -332,11 +332,11 @@
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .scroll_track = .{
-        .rect = .{ .x = 57, .y = 76, .w = 5, .h = 5 },
+        .rect = .{ .x = 57, .y = 76, .w = 5, .h = 4 },
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .scroll_up = .{
-        .rect = .{ .x = 57, .y = 82, .w = 5, .h = 5 },
+        .rect = .{ .x = 57, .y = 81, .w = 5, .h = 5 },
         .border = .{ .left = 0, .right = 0, .top = 0, .bottom = 0 },
     },
     .section = .{

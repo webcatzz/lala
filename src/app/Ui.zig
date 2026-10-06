@@ -49,7 +49,7 @@ pub const Pane = union(enum) {
     /// Lays out the pane and its contents within the given rectangle.
     pub fn layOut(self: *Pane, ui: *Ui, r: math.Rect(f32)) void {
         switch (self.*) {
-            .piano_roll => |*piano_roll| piano_roll.rect = r,
+            .piano_roll => |*piano_roll| piano_roll.layOut(r),
             .timeline => |*timeline| timeline.rect = r,
             .split => |*split| split.layOut(ui, r),
         }
@@ -237,6 +237,9 @@ pub const frame = struct {
 };
 
 pub const scrollbar = struct {
+    /// The width of the scrollbar.
+    pub const width = Renderer.Spritesheet.Sprite.scroll_track.info().rect.w;
+
     /// Draws a vertical scrollbar.
     pub fn drawVertical(renderer: *Renderer, value: f32, rect: math.Rect(f32)) !void {
         const button_h = Renderer.Spritesheet.Sprite.scroll_down.info().rect.h;
@@ -246,8 +249,8 @@ pub const scrollbar = struct {
 
         const track_y = rect.y + button_h;
         const track_h = rect.h - button_h * 2;
-        const thumb_h = 64;
-        const thumb_y = track_y - thumb_h * value;
+        const thumb_h = 16;
+        const thumb_y = track_y + track_h * value - thumb_h * value;
 
         try renderer.drawSpriteRepeat(.scroll_track, .{
             .x = rect.x,
@@ -263,7 +266,7 @@ pub const scrollbar = struct {
         });
         try renderer.drawSprite(.scroll_thumb_marks, .{
             .x = rect.x,
-            .y = thumb_y + thumb_h / 2 - Renderer.Spritesheet.Sprite.scroll_thumb_marks.info().rect.h,
+            .y = thumb_y + (thumb_h - Renderer.Spritesheet.Sprite.scroll_thumb_marks.info().rect.h) / 2,
         });
     }
 };

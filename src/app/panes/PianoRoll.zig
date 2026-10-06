@@ -89,16 +89,22 @@ pub fn respond(self: *PianoRoll, ctx: *Ctx, event: input.Event) !void {
                 self.selection = .empty;
         },
         .cursor => |cursor_event| if (self.pattern_index) |pattern_index| {
-            if (ctx.input.is_action_active(.piano_roll_place_note))
-                switch (self.selection) {
-                    .note_end => |i| {
-                        const note = &ctx.track_edit.track.patterns[pattern_index].notes[i];
-                        const tick_offset: Track.Pattern.Tick = @trunc(self.scroll_amount.x / self.tick_width);
-                        note.interval.last_tick = (@max(note.interval.first_tick, tick_offset + tickFromX(cursor_event.pos.x, self.rect.x, self.tick_width)) / self.tick_snap + 1) * self.tick_snap;
-                        ctx.queueRedraw();
-                    },
-                    else => {},
-                };
+            if (cursor_event.pos.x < self.rect.x + Ui.frame.border.left + piano_key_width) {
+                // Piano keyboard
+                // TODO
+            } else {
+                // Note editor
+                if (ctx.input.is_action_active(.piano_roll_place_note))
+                    switch (self.selection) {
+                        .note_end => |i| {
+                            const note = &ctx.track_edit.track.patterns[pattern_index].notes[i];
+                            const tick_offset: Track.Pattern.Tick = @trunc(self.scroll_amount.x / self.tick_width);
+                            note.interval.last_tick = (@max(note.interval.first_tick, tick_offset + tickFromX(cursor_event.pos.x, self.rect.x + Ui.frame.border.left + piano_key_width, self.tick_width)) / self.tick_snap + 1) * self.tick_snap;
+                            ctx.queueRedraw();
+                        },
+                        else => {},
+                    };
+            }
         },
         .scroll => |scroll_event| {
             self.scroll_amount = .{

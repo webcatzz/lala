@@ -8,8 +8,8 @@
         .border = .{ .left = 1, .right = 1, .top = 1, .bottom = 1 },
     },
     .frame = .{
-        .rect = .{ .x = 49, .y = 65, .w = 7, .h = 16 },
-        .border = .{ .left = 3, .right = 3, .top = 12, .bottom = 3 },
+        .rect = .{ .x = 49, .y = 65, .w = 7, .h = 17 },
+        .border = .{ .left = 3, .right = 3, .top = 13, .bottom = 3 },
     },
     .input_number = .{
         .rect = .{ .x = 63, .y = 65, .w = 25, .h = 11 },

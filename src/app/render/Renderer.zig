@@ -13,9 +13,9 @@ const std = @import("std");
 pub const Spritesheet = @import("Spritesheet.zig");
 
 /// A queue of commands to be performed during rendering.
-command_queue: CommandQueue,
+cmd_queue: CmdQueue,
 /// A queue of vertices to be uploaded to the GPU.
-vertex_queue: std.ArrayList(Vertex),
+vtx_queue: std.ArrayList(Vtx),
 /// The spritesheet used by the renderer.
 spritesheet: Spritesheet,
 
@@ -29,11 +29,11 @@ _gpu_pipeline: *sdl.SDL_GPUGraphicsPipeline,
 _gpu_sampler: *sdl.SDL_GPUSampler,
 /// A buffer used to upload vertices to the GPU.
 ///
-/// The buffer's capacity is assumed to match that of `vertex_queue`.
+/// The buffer's capacity is assumed to match that of `vtx_queue`.
 _gpu_transfer_buffer: *sdl.SDL_GPUTransferBuffer,
 /// A buffer of vertices in GPU memory.
 ///
-/// The buffer's capacity is assumed to match that of `vertex_queue`.
+/// The buffer's capacity is assumed to match that of `vtx_queue`.
 _gpu_buffer: *sdl.SDL_GPUBuffer,
 
 const Renderer = @This();
@@ -44,6 +44,132 @@ const target_texture_format = sdl.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
 /// An error that might occur while drawing.
 pub const DrawError = error{ OutOfMemory, Sdl };
 
+/// A rendering command.
+const Cmd = union(enum) {
+    /// Draws a number of vertices from the vertex queue.
+    draw_vertices: u32,
+    /// Sets the current color multiplier.
+    switch_color: math.Color(u8),
+    /// Sets the current scale multiplier.
+    switch_scale: math.Vec2(f32),
+};
+
+/// A buffer of rendering commands.
+const CmdQueue = struct {
+    /// The commands in the queue.
+    _list: std.ArrayList(Cmd),
+    /// The current color multiplier, as of the most recent command in the queue.
+    _current_color: math.Color(u8) = .white,
+    /// The current scale multiplier, as of the most recent command in the queue.
+    _current_scale: math.Vec2(f32) = .one,
+
+    /// Draws the given number of vertices from the vertex queue.
+    ///
+    /// Asserts that the queue can hold one additional item.
+    pub fn drawVerticesAssumeCapacity(self: *CmdQueue, count: u32) !void {
+        if (self.last()) |last_cmd|
+            if (last_cmd.* == .draw_vertices) {
+                last_cmd.draw_vertices += count;
+                return;
+            };
+
+        self._list.appendAssumeCapacity(.{ .draw_vertices = count });
+    }
+
+    /// Draws the given number of vertices from the vertex queue.
+    ///
+    /// Allocates more memory as necessary.
+    pub fn drawVerticesAlloc(self: *CmdQueue, gpa: std.mem.Allocator, count: u32) !void {
+        try self._list.ensureUnusedCapacity(gpa, 1);
+        try self.drawVerticesAssumeCapacity(count);
+    }
+
+    /// Sets the color multiplier used for subsequent drawing operations.
+    ///
+    /// Asserts that the queue can hold one additional item.
+    pub fn switchColorAssumeCapacity(self: *CmdQueue, color: math.Color(u8)) !void {
+        if (std.meta.eql(self._current_color, color))
+            return;
+        self._current_color = color;
+
+        if (self.last()) |last_cmd|
+            if (last_cmd.* == .switch_color) {
+                last_cmd.switch_color = color;
+                return;
+            };
+
+        self._list.appendAssumeCapacity(.{ .switch_color = color });
+    }
+
+    /// Sets the color multiplier used for subsequent drawing operations.
+    ///
+    /// Allocates more memory as necessary.
+    pub fn switchColorAlloc(self: *CmdQueue, gpa: std.mem.Allocator, color: math.Color(u8)) !void {
+        try self._list.ensureUnusedCapacity(gpa, 1);
+        try self.switchColorAssumeCapacity(color);
+    }
+
+    /// Sets the scale multiplier used for subsequent drawing operations.
+    ///
+    /// Asserts that the queue can hold one additional item.
+    pub fn switchScaleAssumeCapacity(self: *CmdQueue, scale: math.Vec2(f32)) !void {
+        if (std.meta.eql(self._current_scale, scale))
+            return;
+        self._current_scale = scale;
+
+        if (self.last()) |last_cmd|
+            if (last_cmd.* == .switch_scale) {
+                last_cmd.switch_scale = scale;
+                return;
+            };
+
+        self._list.appendAssumeCapacity(.{ .switch_scale = scale });
+    }
+
+    /// Sets the scale multiplier used for subsequent drawing operations.
+    ///
+    /// Allocates more memory as necessary.
+    pub fn switchScaleAlloc(self: *CmdQueue, gpa: std.mem.Allocator, scale: math.Vec2(f32)) !void {
+        try self._list.ensureUnusedCapacity(gpa, 1);
+        try self.switchScaleAssumeCapacity(scale);
+    }
+
+    /// Clears the command queue.
+    pub fn clear(self: *CmdQueue) void {
+        self._list.clearRetainingCapacity();
+        self._current_color = .white;
+        self._current_scale = .one;
+    }
+
+    /// Returns a pointer to the last command in the queue, if any.
+    fn last(self: *CmdQueue) ?*Cmd {
+        if (self._list.items.len == 0) return null;
+        return &self._list.items[self._list.items.len - 1];
+    }
+};
+
+/// A vertex passed to the GPU.
+pub const Vtx = extern struct {
+    /// The *x*-position of the vertex, in screen coordinates.
+    x: f32,
+    /// The *y*-position of the vertex, in screen coordinates.
+    y: f32,
+    /// The *x*-position at which to sample the spritesheet, in UV coordinates.
+    u: f32,
+    /// The *y*-position at which to sample the spritesheet, in UV coordinates.
+    v: f32,
+
+    /// Constructs a vertex from `math` types.
+    pub fn construct(pos: math.Vec2(f32), uv: math.Vec2(f32)) Vtx {
+        return .{
+            .x = pos.x,
+            .y = pos.y,
+            .u = uv.x,
+            .v = uv.y,
+        };
+    }
+};
+
 /// Returns a new renderer.
 ///
 /// The renderer is owned by the caller and must be freed by calling `deinit`.
@@ -52,11 +178,11 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
         return error.Sdl;
     errdefer sdl.SDL_DestroyGPUDevice(gpu_device);
 
-    var command_queue: CommandQueue = .{ ._list = try .initCapacity(gpa, 512) };
-    errdefer command_queue._list.deinit(gpa);
+    var cmd_queue: CmdQueue = .{ ._list = try .initCapacity(gpa, 512) };
+    errdefer cmd_queue._list.deinit(gpa);
 
-    var vertex_queue: std.ArrayList(Vertex) = try .initCapacity(gpa, 1024);
-    errdefer vertex_queue.deinit(gpa);
+    var vtx_queue: std.ArrayList(Vtx) = try .initCapacity(gpa, 1024);
+    errdefer vtx_queue.deinit(gpa);
 
     var io_single_threaded: std.Io.Threaded = .init_single_threaded;
     const io = io_single_threaded.io();
@@ -99,7 +225,7 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
             .num_vertex_buffers = 1,
             .vertex_buffer_descriptions = &.{
                 .slot = 0,
-                .pitch = @sizeOf(Vertex),
+                .pitch = @sizeOf(Vtx),
                 .input_rate = sdl.SDL_GPU_VERTEXINPUTRATE_VERTEX,
             },
             .num_vertex_attributes = 2,
@@ -134,21 +260,21 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
 
     const gpu_buffer = sdl.SDL_CreateGPUBuffer(gpu_device, &.{
         .usage = sdl.SDL_GPU_BUFFERUSAGE_VERTEX,
-        .size = @intCast(vertex_queue.capacity * @sizeOf(Vertex)),
+        .size = @intCast(vtx_queue.capacity * @sizeOf(Vtx)),
     }) orelse
         return error.Sdl;
     errdefer sdl.SDL_ReleaseGPUBuffer(gpu_device, gpu_buffer);
 
     const gpu_transfer_buffer = sdl.SDL_CreateGPUTransferBuffer(gpu_device, &.{
         .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = @intCast(vertex_queue.capacity * @sizeOf(Vertex)),
+        .size = @intCast(vtx_queue.capacity * @sizeOf(Vtx)),
     }) orelse
         return error.Sdl;
     errdefer sdl.SDL_ReleaseGPUTransferBuffer(gpu_device, gpu_transfer_buffer);
 
     return .{
-        .vertex_queue = vertex_queue,
-        .command_queue = command_queue,
+        .vtx_queue = vtx_queue,
+        .cmd_queue = cmd_queue,
         .spritesheet = spritesheet,
         .gpa = gpa,
         ._gpu_device = gpu_device,
@@ -163,8 +289,8 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
 ///
 /// The renderer should not be used after calling this function.
 pub fn deinit(self: *Renderer) void {
-    self.command_queue._list.deinit(self.gpa);
-    self.vertex_queue.deinit(self.gpa);
+    self.cmd_queue._list.deinit(self.gpa);
+    self.vtx_queue.deinit(self.gpa);
     self.spritesheet.deinit(self._gpu_device);
     sdl.SDL_ReleaseGPUTransferBuffer(self._gpu_device, self._gpu_transfer_buffer);
     sdl.SDL_ReleaseGPUBuffer(self._gpu_device, self._gpu_buffer);
@@ -178,35 +304,35 @@ pub fn deinit(self: *Renderer) void {
 
 /// Cancels all pending draw operations.
 pub fn clear(self: *Renderer) void {
-    self.vertex_queue.clearRetainingCapacity();
-    self.command_queue.clear();
+    self.vtx_queue.clearRetainingCapacity();
+    self.cmd_queue.clear();
 }
 
 /// Sets the scale multiplier applied to subsequent draw operations.
 pub fn switchScale(self: *Renderer, x: f32, y: f32) !void {
-    try self.command_queue.switchScaleAlloc(self.gpa, .{ .x = x, .y = y });
+    try self.cmd_queue.switchScaleAlloc(self.gpa, .{ .x = x, .y = y });
 }
 
 /// Sets the color multiplier applied to subsequent draw operations.
 pub fn switchColor(self: *Renderer, color: math.Color(u8)) !void {
-    try self.command_queue.switchColorAlloc(self.gpa, color);
+    try self.cmd_queue.switchColorAlloc(self.gpa, color);
 }
 
 /// Draws the given vertices.
-pub fn drawVertices(self: *Renderer, vertices: []const Vertex) !void {
-    if (vertices.len >= self.vertex_queue.capacity - self.vertex_queue.items.len) {
-        try self.vertex_queue.ensureUnusedCapacity(self.gpa, vertices.len);
+pub fn drawVertices(self: *Renderer, vertices: []const Vtx) !void {
+    if (vertices.len >= self.vtx_queue.capacity - self.vtx_queue.items.len) {
+        try self.vtx_queue.ensureUnusedCapacity(self.gpa, vertices.len);
 
         const gpu_buffer = sdl.SDL_CreateGPUBuffer(self._gpu_device, &.{
             .usage = sdl.SDL_GPU_BUFFERUSAGE_VERTEX,
-            .size = @intCast(self.vertex_queue.capacity * @sizeOf(Vertex)),
+            .size = @intCast(self.vtx_queue.capacity * @sizeOf(Vtx)),
         }) orelse
             return error.Sdl;
         errdefer sdl.SDL_ReleaseGPUBuffer(self._gpu_device, gpu_buffer);
 
         const gpu_transfer_buffer = sdl.SDL_CreateGPUTransferBuffer(self._gpu_device, &.{
             .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-            .size = @intCast(self.vertex_queue.capacity * @sizeOf(Vertex)),
+            .size = @intCast(self.vtx_queue.capacity * @sizeOf(Vtx)),
         }) orelse
             return error.Sdl;
         errdefer sdl.SDL_ReleaseGPUTransferBuffer(self._gpu_device, gpu_transfer_buffer);
@@ -214,9 +340,9 @@ pub fn drawVertices(self: *Renderer, vertices: []const Vertex) !void {
         self._gpu_buffer = gpu_buffer;
         self._gpu_transfer_buffer = gpu_transfer_buffer;
     }
-    self.vertex_queue.appendSliceAssumeCapacity(vertices);
+    self.vtx_queue.appendSliceAssumeCapacity(vertices);
 
-    try self.command_queue.drawVerticesAlloc(self.gpa, @intCast(vertices.len));
+    try self.cmd_queue.drawVerticesAlloc(self.gpa, @intCast(vertices.len));
 }
 
 /// Draws the given region of the spritesheet to the given rectangle.
@@ -227,7 +353,7 @@ pub fn drawRegion(
 ) !void {
     const corners = dst.corners();
 
-    const rect_vertices: [4]Vertex = .{
+    const rect_vertices: [4]Vtx = .{
         .construct(corners.tl, .{ .x = @as(f32, src.x) / Spritesheet.width, .y = @as(f32, src.y) / Spritesheet.height }),
         .construct(corners.tr, .{ .x = @as(f32, src.x + src.w) / Spritesheet.width, .y = @as(f32, src.y) / Spritesheet.height }),
         .construct(corners.bl, .{ .x = @as(f32, src.x) / Spritesheet.width, .y = @as(f32, src.y + src.h) / Spritesheet.height }),
@@ -403,21 +529,21 @@ pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
         const copy_pass = sdl.SDL_BeginGPUCopyPass(command_buffer) orelse unreachable;
         defer sdl.SDL_EndGPUCopyPass(copy_pass);
 
-        const transfer_ptr: [*]Vertex = @ptrCast(@alignCast(
+        const transfer_ptr: [*]Vtx = @ptrCast(@alignCast(
             sdl.SDL_MapGPUTransferBuffer(self._gpu_device, self._gpu_transfer_buffer, false) orelse
                 return error.Sdl,
         ));
-        @memcpy(transfer_ptr, self.vertex_queue.items);
+        @memcpy(transfer_ptr, self.vtx_queue.items);
         sdl.SDL_UnmapGPUTransferBuffer(self._gpu_device, self._gpu_transfer_buffer);
 
         sdl.SDL_UploadToGPUBuffer(copy_pass, &.{
             .transfer_buffer = self._gpu_transfer_buffer,
         }, &.{
             .buffer = self._gpu_buffer,
-            .size = @as(u32, @intCast(self.vertex_queue.items.len)) * @sizeOf(Vertex),
+            .size = @as(u32, @intCast(self.vtx_queue.items.len)) * @sizeOf(Vtx),
         }, false);
 
-        self.vertex_queue.clearRetainingCapacity();
+        self.vtx_queue.clearRetainingCapacity();
     }
 
     {
@@ -440,12 +566,12 @@ pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
         sdl.SDL_BindGPUFragmentSamplers(render_pass, 0, &.{ .texture = self.spritesheet._gpu_texture, .sampler = self._gpu_sampler }, 1);
         sdl.SDL_PushGPUFragmentUniformData(command_buffer, 0, &[4]f32{ 1.0, 1.0, 1.0, 1.0 }, @sizeOf([4]f32));
 
-        var vertex_index: u32 = 0;
-        for (self.command_queue._list.items) |command| {
-            switch (command) {
-                .draw_vertices => |vertex_count| {
-                    sdl.SDL_DrawGPUPrimitives(render_pass, vertex_count, 1, vertex_index, 0);
-                    vertex_index += vertex_count;
+        var vtx_index: u32 = 0;
+        for (self.cmd_queue._list.items) |cmd| {
+            switch (cmd) {
+                .draw_vertices => |vtx_count| {
+                    sdl.SDL_DrawGPUPrimitives(render_pass, vtx_count, 1, vtx_index, 0);
+                    vtx_index += vtx_count;
                 },
                 .switch_color => |color| sdl.SDL_PushGPUFragmentUniformData(command_buffer, 0, &[4]f32{
                     @as(f32, @floatFromInt(color.r)) / 255,
@@ -484,127 +610,3 @@ fn lineCorners(a: math.Vec2(f32), b: math.Vec2(f32), width: f32) [4]math.Vec2(f3
     const perp = math.Vec2(f32){ .x = unit.y, .y = -unit.x };
     return .{ a.sub(perp), a.add(perp), b.add(perp), b.sub(perp) };
 }
-
-/// Buffers rendering commands.
-const CommandQueue = struct {
-    /// The commands in the queue.
-    _list: std.ArrayList(Command),
-    /// The current color multiplier, as of the most recent command in the queue.
-    _current_color: math.Color(u8) = .white,
-    /// The current scale multiplier, as of the most recent command in the queue.
-    _current_scale: math.Vec2(f32) = .one,
-
-    /// Draws the given number of vertices from the vertex queue.
-    ///
-    /// Asserts that the queue can hold one additional item.
-    pub fn drawVerticesAssumeCapacity(self: *CommandQueue, count: u32) !void {
-        if (self.last()) |last_cmd|
-            if (last_cmd.* == .draw_vertices) {
-                last_cmd.draw_vertices += count;
-                return;
-            };
-
-        self._list.appendAssumeCapacity(.{ .draw_vertices = count });
-    }
-
-    /// Draws the given number of vertices from the vertex queue.
-    ///
-    /// Allocates more memory as necessary.
-    pub fn drawVerticesAlloc(self: *CommandQueue, gpa: std.mem.Allocator, count: u32) !void {
-        try self._list.ensureUnusedCapacity(gpa, 1);
-        try self.drawVerticesAssumeCapacity(count);
-    }
-
-    /// Sets the color multiplier used for subsequent drawing operations.
-    ///
-    /// Asserts that the queue can hold one additional item.
-    pub fn switchColorAssumeCapacity(self: *CommandQueue, color: math.Color(u8)) !void {
-        if (std.meta.eql(self._current_color, color))
-            return;
-        self._current_color = color;
-
-        if (self.last()) |last_cmd|
-            if (last_cmd.* == .switch_color) {
-                last_cmd.switch_color = color;
-                return;
-            };
-
-        self._list.appendAssumeCapacity(.{ .switch_color = color });
-    }
-
-    /// Sets the color multiplier used for subsequent drawing operations.
-    ///
-    /// Allocates more memory as necessary.
-    pub fn switchColorAlloc(self: *CommandQueue, gpa: std.mem.Allocator, color: math.Color(u8)) !void {
-        try self._list.ensureUnusedCapacity(gpa, 1);
-        try self.switchColorAssumeCapacity(color);
-    }
-
-    /// Sets the scale multiplier used for subsequent drawing operations.
-    ///
-    /// Asserts that the queue can hold one additional item.
-    pub fn switchScaleAssumeCapacity(self: *CommandQueue, scale: math.Vec2(f32)) !void {
-        if (std.meta.eql(self._current_scale, scale))
-            return;
-        self._current_scale = scale;
-
-        if (self.last()) |last_cmd|
-            if (last_cmd.* == .switch_scale) {
-                last_cmd.switch_scale = scale;
-                return;
-            };
-
-        self._list.appendAssumeCapacity(.{ .switch_scale = scale });
-    }
-
-    /// Sets the scale multiplier used for subsequent drawing operations.
-    ///
-    /// Allocates more memory as necessary.
-    pub fn switchScaleAlloc(self: *CommandQueue, gpa: std.mem.Allocator, scale: math.Vec2(f32)) !void {
-        try self._list.ensureUnusedCapacity(gpa, 1);
-        try self.switchScaleAssumeCapacity(scale);
-    }
-
-    /// Clears the command queue.
-    pub fn clear(self: *CommandQueue) void {
-        self._list.clearRetainingCapacity();
-        self._current_color = .white;
-        self._current_scale = .one;
-    }
-
-    /// Returns a pointer to the last command in the queue, if any.
-    fn last(self: *CommandQueue) ?*Command {
-        if (self._list.items.len == 0) return null;
-        return &self._list.items[self._list.items.len - 1];
-    }
-};
-
-/// A rendering command.
-const Command = union(enum) {
-    /// Draws a number of vertices from the vertex queue.
-    draw_vertices: u32,
-    /// Sets the current color multiplier.
-    switch_color: math.Color(u8),
-    /// Sets the current scale multiplier.
-    switch_scale: math.Vec2(f32),
-};
-
-/// A unit of data passed to the vertex shader.
-pub const Vertex = extern struct {
-    // Position, in normalized device coordinates
-    x: f32,
-    y: f32,
-    // Texture coordinates
-    u: f32,
-    v: f32,
-
-    /// Constructs a vertex from `math` types.
-    pub fn construct(pos: math.Vec2(f32), uv: math.Vec2(f32)) Vertex {
-        return .{
-            .x = pos.x,
-            .y = pos.y,
-            .u = uv.x,
-            .v = uv.y,
-        };
-    }
-};

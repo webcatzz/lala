@@ -292,6 +292,52 @@ pub fn drawRegion9Patch(
     );
 }
 
+/// Draws the given region of the spritesheet repeated to fill the given rectangle.
+pub fn drawRegionRepeat(
+    self: *Renderer,
+    src: math.Rect(u8),
+    dst: math.Rect(f32),
+) !void {
+    const x_fit = dst.w / src.w;
+    const y_fit = dst.h / src.h;
+    const x_repeat_count: u16 = @trunc(x_fit);
+    const y_repeat_count: u16 = @trunc(y_fit);
+    const x_repeat_fr = x_fit - x_repeat_count;
+    const y_repeat_fr = y_fit - y_repeat_count;
+
+    for (0..x_repeat_count) |x|
+        for (0..y_repeat_count) |y|
+            try self.drawRegion(src, .{
+                .x = dst.x + src.w * @as(f32, @floatFromInt(x)),
+                .y = dst.y + src.h * @as(f32, @floatFromInt(y)),
+                .w = src.w,
+                .h = src.h,
+            });
+
+    for (0..x_repeat_count) |x|
+        try self.drawRegion(src, .{
+            .x = dst.x + src.w * @as(f32, @floatFromInt(x)),
+            .y = dst.y + src.h * y_repeat_count,
+            .w = src.w,
+            .h = src.h * y_repeat_fr,
+        });
+
+    for (0..y_repeat_count) |y|
+        try self.drawRegion(src, .{
+            .x = dst.x + src.w * x_repeat_count,
+            .y = dst.y + src.h * @as(f32, @floatFromInt(y)),
+            .w = src.w * x_repeat_fr,
+            .h = src.h,
+        });
+
+    try self.drawRegion(src, .{
+        .x = dst.x + src.w * x_repeat_count,
+        .y = dst.y + src.h * y_repeat_count,
+        .w = src.w * x_repeat_fr,
+        .h = src.h * y_repeat_fr,
+    });
+}
+
 /// Draws the given sprite with its top-left corner at the given position.
 pub fn drawSprite(self: *Renderer, sprite: Spritesheet.Sprite, pos: math.Vec2(f32)) !void {
     const sprite_info = sprite.info();
@@ -310,46 +356,7 @@ pub fn drawSpriteStretch(self: *Renderer, sprite: Spritesheet.Sprite, rect: math
 
 /// Draws the given sprite repeated to fill the given rectangle.
 pub fn drawSpriteRepeat(self: *Renderer, sprite: Spritesheet.Sprite, rect: math.Rect(f32)) !void {
-    const sprite_rect = sprite.info().rect;
-
-    const x_fit = rect.w / sprite_rect.w;
-    const y_fit = rect.h / sprite_rect.h;
-    const x_repeat_count: u16 = @trunc(x_fit);
-    const y_repeat_count: u16 = @trunc(y_fit);
-    const x_repeat_fr = x_fit - x_repeat_count;
-    const y_repeat_fr = y_fit - y_repeat_count;
-
-    for (0..x_repeat_count) |x|
-        for (0..y_repeat_count) |y|
-            try self.drawRegion(sprite_rect, .{
-                .x = rect.x + sprite_rect.w * @as(f32, @floatFromInt(x)),
-                .y = rect.y + sprite_rect.h * @as(f32, @floatFromInt(y)),
-                .w = sprite_rect.w,
-                .h = sprite_rect.h,
-            });
-
-    for (0..x_repeat_count) |x|
-        try self.drawRegion(sprite_rect, .{
-            .x = rect.x + sprite_rect.w * @as(f32, @floatFromInt(x)),
-            .y = rect.y + sprite_rect.h * y_repeat_count,
-            .w = sprite_rect.w,
-            .h = sprite_rect.h * y_repeat_fr,
-        });
-
-    for (0..y_repeat_count) |y|
-        try self.drawRegion(sprite_rect, .{
-            .x = rect.x + sprite_rect.w * x_repeat_count,
-            .y = rect.y + sprite_rect.h * @as(f32, @floatFromInt(y)),
-            .w = sprite_rect.w * x_repeat_fr,
-            .h = sprite_rect.h,
-        });
-
-    try self.drawRegion(sprite_rect, .{
-        .x = rect.x + sprite_rect.w * x_repeat_count,
-        .y = rect.y + sprite_rect.h * y_repeat_count,
-        .w = sprite_rect.w * x_repeat_fr,
-        .h = sprite_rect.h * y_repeat_fr,
-    });
+    try self.drawRegionRepeat(sprite.info().rect, rect);
 }
 
 /// Draws the given sprite as a nine-patch filling the given rectangle.

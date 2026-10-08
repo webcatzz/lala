@@ -23,7 +23,7 @@ pub const render_scale = 3;
 /// Returns the app.
 ///
 /// The app is owned by the caller and should be freed by calling `deinit`.
-fn init(gpa: std.mem.Allocator, _: std.Io) !App {
+fn init(gpa: std.mem.Allocator, io: std.Io) !App {
     const window = sdl.SDL_CreateWindow("lala", 800, 600, sdl.SDL_WINDOW_HIGH_PIXEL_DENSITY) orelse
         return error.Sdl;
     errdefer sdl.SDL_DestroyWindow(window);
@@ -53,7 +53,7 @@ fn init(gpa: std.mem.Allocator, _: std.Io) !App {
     const ctx = try gpa.create(Ctx);
     errdefer gpa.destroy(ctx);
 
-    ctx.* = try .init(gpa);
+    ctx.* = try .init(gpa, io);
     errdefer ctx.deinit();
 
     if (!sdl.SDL_SetAudioStreamGetCallback(audio_stream, @ptrCast(&synth), ctx))

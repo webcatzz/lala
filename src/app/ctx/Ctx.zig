@@ -45,11 +45,13 @@ should_redraw: bool = true,
 
 /// A general-purpose allocator.
 gpa: std.mem.Allocator,
+/// An IO interface.
+io: std.Io,
 
 /// Returns a new context.
 ///
 /// The context is owned by the caller and should be freed by calling `deinit`.
-pub fn init(gpa: std.mem.Allocator) !Ctx {
+pub fn init(gpa: std.mem.Allocator, io: std.Io) !Ctx {
     var track_edit: TrackEdit = .{};
     errdefer track_edit.deinit(gpa);
 
@@ -100,6 +102,7 @@ pub fn init(gpa: std.mem.Allocator) !Ctx {
         .piano_roll = piano_roll,
         .timeline = timeline,
         .gpa = gpa,
+        .io = io,
     };
 }
 

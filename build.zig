@@ -77,12 +77,31 @@ pub fn build(b: *std.Build) !void {
 
     doc_step.dependOn(&doc_dir.step);
 
+    // `shaders`
+
+    const shader_step = b.step("shaders", "Transpile shaders");
+
+    const shader_mod = b.createModule(.{
+        .root_source_file = b.path("build/shaders.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const shader_exe = b.addExecutable(.{
+        .name = "build_shaders",
+        .root_module = shader_mod,
+    });
+
+    const shader_cmd = b.addRunArtifact(shader_exe);
+
+    shader_step.dependOn(&shader_cmd.step);
+
     // `sprites`
 
     const spr_step = b.step("sprites", "Reload sprite data into file");
 
     const spr_mod = b.createModule(.{
-        .root_source_file = b.path("build_sprites.zig"),
+        .root_source_file = b.path("build/sprites.zig"),
         .target = target,
         .optimize = optimize,
     });

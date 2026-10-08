@@ -18,8 +18,6 @@ command_queue: CommandQueue,
 vertex_queue: std.ArrayList(Vertex),
 /// The spritesheet used by the renderer.
 spritesheet: Spritesheet,
-/// A multiplier applied to rendering coordinates.
-_scale: math.Vec2(f32) = .splat(1),
 
 /// An allocator for commands and vertices.
 gpa: std.mem.Allocator,
@@ -69,18 +67,19 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
     const file_buf = try gpa.alloc(u8, 1024);
     defer gpa.free(file_buf);
 
-    const vert_shader_code = try std.Io.Dir.cwd().readFile(io, "res/vert.msl", file_buf);
+    const vert_shader_code = try std.Io.Dir.cwd().readFile(io, "res/shaders/vert.msl", file_buf);
     const vert_shader = sdl.SDL_CreateGPUShader(gpu_device, &.{
         .code_size = vert_shader_code.len,
         .code = vert_shader_code.ptr,
         .entrypoint = "VertMain",
         .format = sdl.SDL_GPU_SHADERFORMAT_MSL,
         .stage = sdl.SDL_GPU_SHADERSTAGE_VERTEX,
+        .num_uniform_buffers = 1,
     }) orelse
         return error.Sdl;
     defer sdl.SDL_ReleaseGPUShader(gpu_device, vert_shader);
 
-    const frag_shader_code = try std.Io.Dir.cwd().readFile(io, "res/frag.msl", file_buf);
+    const frag_shader_code = try std.Io.Dir.cwd().readFile(io, "res/shaders/frag.msl", file_buf);
     const frag_shader = sdl.SDL_CreateGPUShader(gpu_device, &.{
         .code_size = frag_shader_code.len,
         .code = frag_shader_code.ptr,
@@ -184,13 +183,13 @@ pub fn clear(self: *Renderer) void {
 }
 
 /// Sets the scale multiplier applied to subsequent draw operations.
-pub fn switchScale(self: *Renderer, x: f32, y: f32) void {
-    self._scale = .{ .x = x, .y = y };
+pub fn switchScale(self: *Renderer, x: f32, y: f32) !void {
+    try self.command_queue.switchScaleAlloc(self.gpa, .{ .x = x, .y = y });
 }
 
 /// Sets the color multiplier applied to subsequent draw operations.
 pub fn switchColor(self: *Renderer, color: math.Color(u8)) !void {
-    return self.command_queue.switchColorAlloc(self.gpa, color);
+    try self.command_queue.switchColorAlloc(self.gpa, color);
 }
 
 /// Draws the given vertices.
@@ -229,10 +228,10 @@ pub fn drawRegion(
     const corners = dst.corners();
 
     const rect_vertices: [4]Vertex = .{
-        .construct(self.mapPos(corners.tl), .{ .x = @as(f32, src.x) / Spritesheet.width, .y = @as(f32, src.y) / Spritesheet.height }),
-        .construct(self.mapPos(corners.tr), .{ .x = @as(f32, src.x + src.w) / Spritesheet.width, .y = @as(f32, src.y) / Spritesheet.height }),
-        .construct(self.mapPos(corners.bl), .{ .x = @as(f32, src.x) / Spritesheet.width, .y = @as(f32, src.y + src.h) / Spritesheet.height }),
-        .construct(self.mapPos(corners.br), .{ .x = @as(f32, src.x + src.w) / Spritesheet.width, .y = @as(f32, src.y + src.h) / Spritesheet.height }),
+        .construct(corners.tl, .{ .x = @as(f32, src.x) / Spritesheet.width, .y = @as(f32, src.y) / Spritesheet.height }),
+        .construct(corners.tr, .{ .x = @as(f32, src.x + src.w) / Spritesheet.width, .y = @as(f32, src.y) / Spritesheet.height }),
+        .construct(corners.bl, .{ .x = @as(f32, src.x) / Spritesheet.width, .y = @as(f32, src.y + src.h) / Spritesheet.height }),
+        .construct(corners.br, .{ .x = @as(f32, src.x + src.w) / Spritesheet.width, .y = @as(f32, src.y + src.h) / Spritesheet.height }),
     };
 
     try self.drawVertices(&.{
@@ -437,6 +436,7 @@ pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
 
         sdl.SDL_BindGPUGraphicsPipeline(render_pass, self._gpu_pipeline);
         sdl.SDL_BindGPUVertexBuffers(render_pass, 0, &.{ .buffer = self._gpu_buffer }, 1);
+        sdl.SDL_PushGPUVertexUniformData(command_buffer, 0, &[2]f32{ 1.0, 1.0 }, @sizeOf([2]f32));
         sdl.SDL_BindGPUFragmentSamplers(render_pass, 0, &.{ .texture = self.spritesheet._gpu_texture, .sampler = self._gpu_sampler }, 1);
         sdl.SDL_PushGPUFragmentUniformData(command_buffer, 0, &[4]f32{ 1.0, 1.0, 1.0, 1.0 }, @sizeOf([4]f32));
 
@@ -453,6 +453,10 @@ pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
                     @as(f32, @floatFromInt(color.b)) / 255,
                     @as(f32, @floatFromInt(color.a)) / 255,
                 }, @sizeOf([4]f32)),
+                .switch_scale => |scale| sdl.SDL_PushGPUVertexUniformData(command_buffer, 0, &[2]f32{
+                    scale.x,
+                    scale.y,
+                }, @sizeOf([2]f32)),
             }
         }
     }
@@ -474,13 +478,6 @@ pub fn releaseWindow(self: *Renderer, window: *sdl.SDL_Window) void {
     sdl.SDL_ReleaseWindowFromGPUDevice(self._gpu_device, window);
 }
 
-/// Converts a screen position to normalized device coordinates.
-pub fn mapPos(self: Renderer, pos: math.Vec2(f32)) math.Vec2(f32) {
-    return math.Vec2(f32).from_simd(
-        pos.to_simd() * self._scale.to_simd() * @as(math.Vec2(f32).Simd, @splat(2)) - @as(math.Vec2(f32).Simd, @splat(1)),
-    ).withNeg(.y);
-}
-
 /// Returns the four vertices that make up a line of the given width between the given points.
 fn lineCorners(a: math.Vec2(f32), b: math.Vec2(f32), width: f32) [4]math.Vec2(f32) {
     const unit = (b.sub(a).normalize() catch math.Vec2(f32).zero).mul(width / 2.0);
@@ -494,9 +491,8 @@ const CommandQueue = struct {
     _list: std.ArrayList(Command),
     /// The current color multiplier, as of the most recent command in the queue.
     _current_color: math.Color(u8) = .white,
-    // /// The current clipping rectangle, as of the most recent command in the
-    // /// queue.
-    // _last_clip: ?math.Rect(f32) = null,
+    /// The current scale multiplier, as of the most recent command in the queue.
+    _current_scale: math.Vec2(f32) = .one,
 
     /// Draws the given number of vertices from the vertex queue.
     ///
@@ -515,7 +511,7 @@ const CommandQueue = struct {
     ///
     /// Allocates more memory as necessary.
     pub fn drawVerticesAlloc(self: *CommandQueue, gpa: std.mem.Allocator, count: u32) !void {
-        try self._list.ensureUnusedCapacity(gpa, count);
+        try self._list.ensureUnusedCapacity(gpa, 1);
         try self.drawVerticesAssumeCapacity(count);
     }
 
@@ -544,10 +540,36 @@ const CommandQueue = struct {
         try self.switchColorAssumeCapacity(color);
     }
 
+    /// Sets the scale multiplier used for subsequent drawing operations.
+    ///
+    /// Asserts that the queue can hold one additional item.
+    pub fn switchScaleAssumeCapacity(self: *CommandQueue, scale: math.Vec2(f32)) !void {
+        if (std.meta.eql(self._current_scale, scale))
+            return;
+        self._current_scale = scale;
+
+        if (self.last()) |last_cmd|
+            if (last_cmd.* == .switch_scale) {
+                last_cmd.switch_scale = scale;
+                return;
+            };
+
+        self._list.appendAssumeCapacity(.{ .switch_scale = scale });
+    }
+
+    /// Sets the scale multiplier used for subsequent drawing operations.
+    ///
+    /// Allocates more memory as necessary.
+    pub fn switchScaleAlloc(self: *CommandQueue, gpa: std.mem.Allocator, scale: math.Vec2(f32)) !void {
+        try self._list.ensureUnusedCapacity(gpa, 1);
+        try self.switchScaleAssumeCapacity(scale);
+    }
+
     /// Clears the command queue.
     pub fn clear(self: *CommandQueue) void {
         self._list.clearRetainingCapacity();
         self._current_color = .white;
+        self._current_scale = .one;
     }
 
     /// Returns a pointer to the last command in the queue, if any.
@@ -563,6 +585,8 @@ const Command = union(enum) {
     draw_vertices: u32,
     /// Sets the current color multiplier.
     switch_color: math.Color(u8),
+    /// Sets the current scale multiplier.
+    switch_scale: math.Vec2(f32),
 };
 
 /// A unit of data passed to the vertex shader.

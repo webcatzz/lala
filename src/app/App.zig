@@ -103,7 +103,7 @@ fn iter(self: *App) !void {
         if (scale == 0)
             return error.Sdl;
 
-        self._renderer.switchScale(
+        try self._renderer.switchScale(
             1 / @as(f32, @floatFromInt(w)) * scale * render_scale,
             1 / @as(f32, @floatFromInt(h)) * scale * render_scale,
         );

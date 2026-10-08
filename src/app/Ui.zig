@@ -56,7 +56,7 @@ pub const Pane = union(enum) {
     }
 
     /// Draws the pane.
-    pub fn draw(self: Pane, renderer: *Renderer, ctx: Ctx) error{OutOfMemory}!void {
+    pub fn draw(self: Pane, renderer: *Renderer, ctx: Ctx) Renderer.DrawError!void {
         try switch (self) {
             .piano_roll => |piano_roll| piano_roll.draw(renderer, ctx),
             .timeline => |timeline| timeline.draw(renderer, ctx),

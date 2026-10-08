@@ -43,6 +43,9 @@ const Renderer = @This();
 /// The texture format used by rendering targets.
 const target_texture_format = sdl.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
 
+/// An error that might occur while drawing.
+pub const DrawError = error{ OutOfMemory, Sdl };
+
 /// Returns a new renderer.
 ///
 /// The renderer is owned by the caller and must be freed by calling `deinit`.
@@ -190,6 +193,33 @@ pub fn switchColor(self: *Renderer, color: math.Color(u8)) !void {
     return self.command_queue.switchColorAlloc(self.gpa, color);
 }
 
+/// Draws the given vertices.
+pub fn drawVertices(self: *Renderer, vertices: []const Vertex) !void {
+    if (vertices.len >= self.vertex_queue.capacity - self.vertex_queue.items.len) {
+        try self.vertex_queue.ensureUnusedCapacity(self.gpa, vertices.len);
+
+        const gpu_buffer = sdl.SDL_CreateGPUBuffer(self._gpu_device, &.{
+            .usage = sdl.SDL_GPU_BUFFERUSAGE_VERTEX,
+            .size = @intCast(self.vertex_queue.capacity * @sizeOf(Vertex)),
+        }) orelse
+            return error.Sdl;
+        errdefer sdl.SDL_ReleaseGPUBuffer(self._gpu_device, gpu_buffer);
+
+        const gpu_transfer_buffer = sdl.SDL_CreateGPUTransferBuffer(self._gpu_device, &.{
+            .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+            .size = @intCast(self.vertex_queue.capacity * @sizeOf(Vertex)),
+        }) orelse
+            return error.Sdl;
+        errdefer sdl.SDL_ReleaseGPUTransferBuffer(self._gpu_device, gpu_transfer_buffer);
+
+        self._gpu_buffer = gpu_buffer;
+        self._gpu_transfer_buffer = gpu_transfer_buffer;
+    }
+    self.vertex_queue.appendSliceAssumeCapacity(vertices);
+
+    try self.command_queue.drawVerticesAlloc(self.gpa, @intCast(vertices.len));
+}
+
 /// Draws the given region of the spritesheet to the given rectangle.
 pub fn drawRegion(
     self: *Renderer,
@@ -205,7 +235,7 @@ pub fn drawRegion(
         .construct(self.mapPos(corners.br), .{ .x = @as(f32, src.x + src.w) / Spritesheet.width, .y = @as(f32, src.y + src.h) / Spritesheet.height }),
     };
 
-    try self.vertex_queue.appendSlice(self.gpa, &.{
+    try self.drawVertices(&.{
         rect_vertices[0],
         rect_vertices[2],
         rect_vertices[3],
@@ -213,7 +243,6 @@ pub fn drawRegion(
         rect_vertices[3],
         rect_vertices[1],
     });
-    try self.command_queue.drawVerticesAlloc(self.gpa, 6);
 }
 
 /// Draws the given region of the spritesheet to the given rectangle, as a nine-patch.
@@ -465,7 +494,7 @@ const CommandQueue = struct {
     /// Draws the given number of vertices from the vertex queue.
     ///
     /// Asserts that the queue can hold one additional item.
-    pub fn drawVerticesAssumeCapacity(self: *CommandQueue, count: u16) !void {
+    pub fn drawVerticesAssumeCapacity(self: *CommandQueue, count: u32) !void {
         if (self.last()) |last_cmd|
             if (last_cmd.* == .draw_vertices) {
                 last_cmd.draw_vertices += count;
@@ -478,8 +507,8 @@ const CommandQueue = struct {
     /// Draws the given number of vertices from the vertex queue.
     ///
     /// Allocates more memory as necessary.
-    pub fn drawVerticesAlloc(self: *CommandQueue, gpa: std.mem.Allocator, count: u16) !void {
-        try self._list.ensureUnusedCapacity(gpa, 1);
+    pub fn drawVerticesAlloc(self: *CommandQueue, gpa: std.mem.Allocator, count: u32) !void {
+        try self._list.ensureUnusedCapacity(gpa, count);
         try self.drawVerticesAssumeCapacity(count);
     }
 

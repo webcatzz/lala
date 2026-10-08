@@ -3,9 +3,7 @@ const input = @import("../input.zig");
 const math = @import("../util/math.zig");
 const pitch = @import("../../synth/pitch.zig");
 const Renderer = @import("../render/Renderer.zig");
-const sdl = @import("sdl");
 const std = @import("std");
-const Timeline = @import("Timeline.zig");
 const Track = @import("../../synth/Track.zig");
 const Ui = @import("../Ui.zig");
 
@@ -131,12 +129,11 @@ pub fn draw(self: PianoRoll, renderer: *Renderer, ctx: Ctx) !void {
 
     try Ui.frame.draw(renderer, self.rect);
 
-    const border = Ui.frame.border;
     const inner_rect = self.rect.grow(.{
-        .left = -@as(f32, border.left),
-        .right = -@as(f32, border.right),
-        .top = -@as(f32, border.top),
-        .bottom = -@as(f32, border.bottom),
+        .left = -@as(f32, Ui.frame.border.left),
+        .right = -@as(f32, Ui.frame.border.right),
+        .top = -@as(f32, Ui.frame.border.top),
+        .bottom = -@as(f32, Ui.frame.border.bottom),
     });
 
     try drawPianoKeys(
@@ -206,13 +203,12 @@ fn drawNotes(
     pitch_offset: u8,
     rect: math.Rect(f32),
 ) !void {
-    // TODO causes a segfault outside the current scope for some reason?
-    // try renderer.drawSpriteRepeat(.line, .{
-    //     .x = self.rect.x + piano_key_width,
-    //     .y = self.rect.y,
-    //     .w = self.rect.w - piano_key_width,
-    //     .h = self.rect.h,
-    // });
+    try renderer.drawSpriteRepeat(.line, .{
+        .x = rect.x,
+        .y = rect.y,
+        .w = rect.w,
+        .h = rect.h,
+    });
 
     // TODO filter out-of-viewport notes
     for (pattern.notes) |note|

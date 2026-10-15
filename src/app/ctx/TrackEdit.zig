@@ -29,6 +29,8 @@ _note_bufs: [][]Track.Note = &.{},
 /// Options for inserting a channel.
 pub const ChannelOptions = struct {
     instrument: Track.Instrument = .{},
+    is_muted: bool = false,
+    is_solo: bool = false,
 };
 
 /// Frees the track edit.
@@ -80,6 +82,8 @@ pub fn insertChannel(self: *TrackEdit, gpa: std.mem.Allocator, options: ChannelO
 pub fn insertChannelAssumeCapacity(self: *TrackEdit, options: ChannelOptions, index: usize) void {
     sliceInsert(Track.Channel, &self.track.channels, .{
         .instrument = options.instrument,
+        .is_muted = options.is_muted,
+        .is_solo = options.is_solo,
         .sections = self._section_bufs[index][0..0],
     }, index);
 }

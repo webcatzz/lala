@@ -21,6 +21,10 @@ pub const empty: Track = .{
 pub const Channel = struct {
     /// The instrument used to play notes in the channel.
     instrument: Instrument = .{},
+    /// If `true`, the channel is muted.
+    is_muted: bool,
+    /// If `true`, the channel is soloing.
+    is_solo: bool,
     /// The spans of patterns in the channel.
     sections: []Section = &.{},
 

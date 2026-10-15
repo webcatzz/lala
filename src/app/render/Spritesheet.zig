@@ -43,6 +43,8 @@ pub const Sprite = enum(u8) {
     scroll_right,
     input_number,
     selection_outline,
+    flipswitch_off,
+    flipswitch_on,
 
     // Piano roll
 
@@ -66,6 +68,13 @@ pub const Sprite = enum(u8) {
     sheet_note_flag,
     sheet_note_flag_chain,
     sheet_line,
+
+    // Icons
+
+    icon_volume_on,
+    icon_volume_off,
+    icon_solo_on,
+    icon_solo_off,
 
     // Characters in the "pebble" font. Base ASCII characters are represented
     // with their ASCII value plus the value of `pebble_base`.

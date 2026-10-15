@@ -9,7 +9,6 @@ const input = @import("input.zig");
 const math = @import("util/math.zig");
 const PianoRoll = @import("panes/PianoRoll.zig");
 const Renderer = @import("render/Renderer.zig");
-const sdl = @import("sdl");
 const sparse_list = @import("util/sparse_list.zig");
 const std = @import("std");
 const Timeline = @import("panes/Timeline.zig");
@@ -271,18 +270,26 @@ pub const scrollbar = struct {
     }
 };
 
-// pub const Scrollbar = struct {
-//     pub fn respond(renderer: *Renderer, rect: math.Rect(f32)) void {}
+pub const flipswitch = struct {
+    pub const width = Renderer.Spritesheet.Sprite.flipswitch_off.info().rect.w;
+    pub const height = Renderer.Spritesheet.Sprite.flipswitch_off.info().rect.h;
 
-//     pub fn draw(renderer: *Renderer, axis: math.Axis, value: f32, rect: math.Rect(f32)) void {
-//         switch (axis) {
-//             .x => {
-//                 const thumb_len = 32;
-//                 const thumb_off = (rect.h - thumb_len) * value;
+    pub fn draw(
+        renderer: *Renderer,
+        pos: math.Vec2(f32),
+        on: bool,
+        icon_off: Renderer.Spritesheet.Sprite,
+        icon_on: Renderer.Spritesheet.Sprite,
+    ) !void {
+        var sprite: Renderer.Spritesheet.Sprite = .flipswitch_off;
+        var icon_y_offset: f32 = 0;
+        if (on) {
+            sprite = .flipswitch_on;
+            icon_y_offset = 2;
+        }
 
-//                 renderer.drawSprite9Patch(.scroll_thumb, pos: Vec2(f32))
-//             },
-//             .y => {},
-//         }
-//     }
-// };
+        try renderer.drawSprite(sprite, pos);
+        try renderer.drawSprite(icon_off, .{ .x = pos.x + 1, .y = pos.y + 1 + icon_y_offset });
+        try renderer.drawSprite(icon_on, .{ .x = pos.x + 1, .y = pos.y + 10 + icon_y_offset });
+    }
+};

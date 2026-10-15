@@ -203,12 +203,13 @@ fn drawNotes(
     pitch_offset: u8,
     rect: math.Rect(f32),
 ) !void {
-    try renderer.drawSpriteRepeat(.line, .{
-        .x = rect.x,
-        .y = rect.y,
-        .w = rect.w,
-        .h = rect.h,
-    });
+    for (0..@trunc(rect.h / pitch_height)) |i|
+        try renderer.drawSpriteRepeat(.line, .{
+            .x = rect.x,
+            .y = rect.y + @as(u8, @truncate(i)) * pitch_height,
+            .w = rect.w,
+            .h = 1,
+        });
 
     // TODO filter out-of-viewport notes
     for (pattern.notes) |note|
@@ -216,7 +217,7 @@ fn drawNotes(
             .x = rect.x + xFromTick(note.interval.first_tick, tick_offset, tick_width),
             .y = rect.y + yFromPitch(note.pitch, pitch_offset),
             .w = @as(f32, @floatFromInt(note.interval.duration())) * tick_width,
-            .h = pitch_height - 1,
+            .h = pitch_height,
         });
 }
 

@@ -10,7 +10,7 @@ const Track = @import("../../synth/Track.zig");
 
 const TrackEdit = @This();
 
-/// A track backed by `buffers`.
+/// A track backed by allocated buffers.
 track: Track = .{},
 
 /// Channel buffers.

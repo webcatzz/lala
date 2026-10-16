@@ -160,6 +160,15 @@ pub fn insertPattern(self: *TrackEdit, gpa: std.mem.Allocator) !usize {
     return i;
 }
 
+/// Removes the pattern with the given index.
+///
+/// Returns the removed pattern.
+pub fn removePattern(self: *TrackEdit, index: usize) void {
+    const pattern = self._patterns.buf[index];
+    self._patterns.destroy(index);
+    return pattern;
+}
+
 /// Inserts the given note into the pattern with the given index.
 ///
 /// Returns the index of the note.

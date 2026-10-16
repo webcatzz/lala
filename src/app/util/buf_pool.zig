@@ -6,7 +6,7 @@ pub fn BufPool(comptime T: type) type {
         const Self = @This();
 
         /// The backing buffer.
-        buf: []T,
+        buf: []Slot,
         /// A singly-linked list of unused slots in the buffer.
         free_list: std.SinglyLinkedList,
 
@@ -16,12 +16,18 @@ pub fn BufPool(comptime T: type) type {
             .free_list = .{},
         };
 
+        /// The value of a single slot in the backing buffer.
+        ///
+        /// The slot may either contain a value of type `T` or a node in the
+        /// free list.
+        const Slot = union { value: T, node: std.SinglyLinkedList.Node };
+
         /// Returns a new pool with the given capacity.
         ///
         /// The pool is owned by the caller and should be freed by calling
         /// `deinit`.
         pub fn initCapacity(gpa: std.mem.Allocator, cap: usize) !Self {
-            const buf = try gpa.alloc(T, cap);
+            const buf = try gpa.alloc(Slot, cap);
             errdefer gpa.free(buf);
 
             return .{
@@ -45,7 +51,7 @@ pub fn BufPool(comptime T: type) type {
         pub fn create(self: *Self, gpa: std.mem.Allocator) !usize {
             if (self.free_list.first == null) {
                 const old_cap = self.buf.len;
-                self.buf = try gpa.realloc(self.buf, std.ArrayList(T).growCapacity(self.buf.len + 1));
+                self.buf = try gpa.realloc(self.buf, std.ArrayList(Slot).growCapacity(self.buf.len + 1));
                 self.free_list = populateBuf(self.buf[old_cap..]);
             }
             return self.createBounded();
@@ -55,17 +61,17 @@ pub fn BufPool(comptime T: type) type {
         ///
         /// If the pool is full, returns `error.OutOfMemory`.
         pub fn createBounded(self: *Self) !usize {
-            const ptr: *T = @ptrCast(@alignCast(self.free_list.popFirst() orelse
+            const slot: *Slot = @ptrCast(@alignCast(self.free_list.popFirst() orelse
                 return error.OutOfMemory));
-            ptr.* = undefined;
-            return self.itemIndex(ptr);
+            slot.* = .{ .value = undefined };
+            return (slot - self.buf.ptr) / @sizeOf(Slot);
         }
 
         /// Destroys the item with the given index.
         pub fn destroy(self: *Self, index: usize) void {
-            const ptr = &self.buf[index];
-            ptr.* = undefined;
-            self.free_list.prepend(@ptrCast(@alignCast(ptr)));
+            const slot = &self.buf[index];
+            slot.* = .{ .node = .{} };
+            self.free_list.prepend(slot.node);
         }
 
         /// Ensures the pool can hold at least `cap` items.
@@ -102,32 +108,25 @@ pub fn BufPool(comptime T: type) type {
             return self.free_list.first == null;
         }
 
+        pub fn items(self: *Self) []T {
+            if (@sizeOf(T) < @sizeOf(Slot) and @alignOf(T) != @alignOf(Slot))
+                @compileError("`BufPool(T).items` may only be called if `T` has the same size as and a compatible alignment with `BufPool(T).Slot`");
+            return @as([*]T, @ptrCast(self.buf.ptr))[0..self.buf.len];
+        }
+
         /// Returns a pointer to the item with the given index.
-        pub fn itemPtr(self: *Self, index: usize) *T {
-            return &self.buf[@intFromEnum(index)];
-        }
-
-        /// Returns a constant pointer to the item with the given index.
-        pub fn itemPtrConst(self: Self, index: usize) *const T {
-            return &self.buf[@intFromEnum(index)];
-        }
-
-        /// Returns the index of the item pointed to by `ptr`.
-        ///
-        /// Assumes `ptr` is within the backing buffer.
-        pub fn itemIndex(self: *Self, ptr: *T) usize {
-            return (ptr - self.buf.ptr) / @sizeOf(T);
+        fn itemPtr(self: *Self, index: usize) *T {
+            return &self.buf[@intFromEnum(index)].value;
         }
 
         /// Populates `buf` with a singly-linked list.
-        fn populateBuf(buf: []T) std.SinglyLinkedList {
+        fn populateBuf(buf: []Slot) std.SinglyLinkedList {
             var dummy: std.SinglyLinkedList.Node = .{};
             var prev_node: *std.SinglyLinkedList.Node = &dummy;
-            for (buf) |*item| {
-                const node: *std.SinglyLinkedList.Node = @ptrCast(@alignCast(item));
-                node.* = .{};
-                prev_node.next = node;
-                prev_node = node;
+            for (buf) |*slot| {
+                slot.* = .{ .node = .{} };
+                prev_node.next = &slot.node;
+                prev_node = &slot.node;
             }
 
             return .{ .first = dummy.next };

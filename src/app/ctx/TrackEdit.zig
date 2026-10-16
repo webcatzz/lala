@@ -146,14 +146,14 @@ pub fn insertPattern(self: *TrackEdit, gpa: std.mem.Allocator) !usize {
         const new_cap = growCapacity(Track.Pattern, old_cap + 1);
 
         try self._patterns.ensureTotalCapacity(gpa, new_cap);
-        self.track.patterns = self._patterns.buf;
+        self.track.patterns = self._patterns.items();
 
         self._note_bufs = try gpa.realloc(self._note_bufs, new_cap);
         @memset(self._note_bufs[old_cap..new_cap], &.{});
     }
     const i = self._patterns.createBounded() catch unreachable;
 
-    self._patterns.buf[i] = .{
+    self._patterns.buf[i].value = .{
         .notes = self._note_bufs[i][0..0],
     };
 

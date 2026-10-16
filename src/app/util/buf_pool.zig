@@ -1,6 +1,6 @@
 const std = @import("std");
 
-/// A memory pool backed by a buffer.
+/// A memory pool backed by a buffer and a singly-linked list.
 pub fn BufPool(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -119,7 +119,7 @@ pub fn BufPool(comptime T: type) type {
             return &self.buf[@intFromEnum(index)].value;
         }
 
-        /// Populates `buf` with a singly-linked list.
+        /// Populates `buf` with empty slots.
         fn populateBuf(buf: []Slot) std.SinglyLinkedList {
             var dummy: std.SinglyLinkedList.Node = .{};
             var prev_node: *std.SinglyLinkedList.Node = &dummy;
@@ -130,6 +130,42 @@ pub fn BufPool(comptime T: type) type {
             }
 
             return .{ .first = dummy.next };
+        }
+
+        test "basic" {
+            var pool: BufPool(T) = .empty;
+            defer pool.deinit(std.testing.allocator);
+
+            std.testing.expect(pool.isFull());
+
+            const item = try pool.create(std.testing.allocator);
+            defer pool.destroy(item);
+
+            std.testing.expect(!pool.isFull());
+        }
+
+        test ensureTotalCapacity {
+            var pool: BufPool(T) = .empty;
+            defer pool.deinit(std.testing.allocator);
+
+            std.testing.expect(pool.isFull());
+
+            try pool.ensureTotalCapacity(std.testing.allocator, 8);
+
+            std.testing.expect(!pool.isFull());
+
+            pool.clearRetainingCapacity();
+
+            std.testing.expect(!pool.isFull());
+        }
+
+        test populateBuf {
+            const buf = try std.testing.allocator.alloc(Slot, 8);
+            defer std.testing.allocator.free(buf);
+
+            const list = populateBuf(buf);
+
+            std.testing.expectEqual(buf.len, list.len());
         }
     };
 }

@@ -57,14 +57,16 @@ pub const DrawError = error{ OutOfMemory, Sdl };
 
 /// The shader format used by the GPU.
 const shader_format = switch (builtin.target.os.tag) {
-    .macos => sdl.SDL_GPU_SHADERFORMAT_MSL,
     .linux => sdl.SDL_GPU_SHADERFORMAT_SPIRV,
+    .macos => sdl.SDL_GPU_SHADERFORMAT_MSL,
+    .windows => sdl.SDL_GPU_SHADERFORMAT_DXIL,
     else => @compileError("Unspecified shader format for target"),
 };
 /// The file extension used by shader files.
 const shader_ext = switch (shader_format) {
-    sdl.SDL_GPU_SHADERFORMAT_MSL => "msl",
     sdl.SDL_GPU_SHADERFORMAT_SPIRV => "spv",
+    sdl.SDL_GPU_SHADERFORMAT_MSL => "msl",
+    sdl.SDL_GPU_SHADERFORMAT_DXIL => "dxil",
     else => @compileError("Unknown shader file extension for shader format"),
 };
 

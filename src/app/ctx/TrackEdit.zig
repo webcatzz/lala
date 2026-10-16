@@ -4,7 +4,7 @@
 //! lifetime, and if any method requiring a memory allocator is called, the track
 //! edit should be freed by calling `deinit`.
 
-const sparse_list = @import("../util/sparse_list.zig");
+const buf_pool = @import("../util/buf_pool.zig");
 const std = @import("std");
 const Track = @import("../../synth/Track.zig");
 
@@ -20,7 +20,7 @@ _channel_buf: []Track.Channel = &.{},
 /// Of the same length as `channel_buf`.
 _section_bufs: [][]Track.Section = &.{},
 /// Pattern buffers.
-_patterns: sparse_list.SparseList(Track.Pattern) = .empty,
+_patterns: buf_pool.BufPool(Track.Pattern) = .empty,
 /// Note buffers for each pattern.
 ///
 /// Of the same length as `pattern_buf`.
@@ -141,23 +141,22 @@ pub fn removeSection(self: *TrackEdit, channel_index: usize, section_index: usiz
 ///
 /// Allocates memory if necessary.
 pub fn insertPattern(self: *TrackEdit, gpa: std.mem.Allocator) !usize {
-    const i = if (self._patterns.firstUninit()) |i| i else blk: {
-        const old_cap = self._patterns.items.len;
-        const i = old_cap + 1;
-        const new_cap = growCapacity(Track.Pattern, i);
+    if (self._patterns.isFull()) {
+        const old_cap = self._patterns.buf.len;
+        const new_cap = growCapacity(Track.Pattern, old_cap + 1);
 
-        try self._patterns.setCapacity(gpa, new_cap);
-        self.track.patterns = self._patterns.items;
+        try self._patterns.ensureTotalCapacity(gpa, new_cap);
+        self.track.patterns = self._patterns.buf;
 
         self._note_bufs = try gpa.realloc(self._note_bufs, new_cap);
         @memset(self._note_bufs[old_cap..new_cap], &.{});
+    }
+    const i = self._patterns.createBounded() catch unreachable;
 
-        break :blk i;
+    self._patterns.buf[i] = .{
+        .notes = self._note_bufs[i][0..0],
     };
 
-    self._patterns.set(i, .{
-        .notes = self._note_bufs[i][0..0],
-    });
     return i;
 }
 

@@ -605,10 +605,10 @@ pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
                     vtx_index += vtx_count;
                 },
                 .switch_color => |color| sdl.SDL_PushGPUFragmentUniformData(command_buffer, 0, &[4]f32{
-                    @as(f32, @floatFromInt(color.r)) / 255,
-                    @as(f32, @floatFromInt(color.g)) / 255,
-                    @as(f32, @floatFromInt(color.b)) / 255,
-                    @as(f32, @floatFromInt(color.a)) / 255,
+                    @as(f32, color.r) / 255,
+                    @as(f32, color.g) / 255,
+                    @as(f32, color.b) / 255,
+                    @as(f32, color.a) / 255,
                 }, @sizeOf([4]f32)),
                 .switch_scale => |scale| sdl.SDL_PushGPUVertexUniformData(command_buffer, 0, &[2]f32{
                     scale.x,

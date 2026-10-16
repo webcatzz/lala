@@ -1,16 +1,28 @@
 //! Handles rendering and manages GPU resources.
 //!
-//! A render happens in two passes:
+//! A render happens in the following steps:
 //!
-//! 1. Draw operations are queued up.
-//! 2. `render` is called to render them to a window.
+//! 1. The renderer's queues are cleared by calling `clear`.
+//! 2. Draw operations are queued up with `draw*` and `switch*` calls.
+//! 2. All queued drawing operations are rendered to a window by calling `render`.
+
+// TODO: For portability, the renderer currently defers creating its rendering
+// pipeline until the first time a window is claimed. The pipeline's parameters
+// include the texture format used by rendering targets, but the texture format
+// used by windows isn't known until one is passed in to be claimed. This puts
+// significant work in an unexpected place. Also, if a window  with a different
+// texture format is ever attempted to be claimed, the renderer will return an
+// error, and if a claimed window's texture format ever changes, it's up to SDL
+// to catch the error. Is there a better way?
+
+// TODO: Support rendering to textures?
 
 const builtin = @import("builtin");
 const math = @import("../util/math.zig");
 const sdl = @import("sdl");
 const std = @import("std");
 
-pub const Spritesheet = @import("Spritesheet.zig");
+const Renderer = @This();
 
 /// A queue of commands to be performed during rendering.
 cmd_queue: CmdQueue,
@@ -24,7 +36,7 @@ gpa: std.mem.Allocator,
 /// The SDL GPU context.
 _gpu_device: *sdl.SDL_GPUDevice,
 /// The SDL GPU graphics pipeline used to render.
-_gpu_pipeline: *sdl.SDL_GPUGraphicsPipeline,
+_gpu_pipeline: ?*sdl.SDL_GPUGraphicsPipeline,
 /// An SDL GPU sampler used to sample vertex textures.
 _gpu_sampler: *sdl.SDL_GPUSampler,
 /// A buffer used to upload vertices to the GPU.
@@ -35,14 +47,26 @@ _gpu_transfer_buffer: *sdl.SDL_GPUTransferBuffer,
 ///
 /// The buffer's capacity is assumed to match that of `vtx_queue`.
 _gpu_buffer: *sdl.SDL_GPUBuffer,
-
-const Renderer = @This();
-
 /// The texture format used by rendering targets.
-const target_texture_format = sdl.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
+_gpu_target_texture_format: sdl.SDL_GPUTextureFormat = sdl.SDL_GPU_TEXTUREFORMAT_INVALID,
+
+pub const Spritesheet = @import("Spritesheet.zig");
 
 /// An error that might occur while drawing.
 pub const DrawError = error{ OutOfMemory, Sdl };
+
+/// The shader format used by the GPU.
+const shader_format = switch (builtin.target.os.tag) {
+    .macos => sdl.SDL_GPU_SHADERFORMAT_MSL,
+    .linux => sdl.SDL_GPU_SHADERFORMAT_SPIRV,
+    else => @compileError("Unspecified shader format for target"),
+};
+/// The file extension used by shader files.
+const shader_ext = switch (shader_format) {
+    sdl.SDL_GPU_SHADERFORMAT_MSL => "msl",
+    sdl.SDL_GPU_SHADERFORMAT_SPIRV => "spv",
+    else => @compileError("Unknown shader file extension for shader format"),
+};
 
 /// A rendering command.
 const Cmd = union(enum) {
@@ -174,7 +198,7 @@ pub const Vtx = extern struct {
 ///
 /// The renderer is owned by the caller and must be freed by calling `deinit`.
 pub fn init(gpa: std.mem.Allocator) !Renderer {
-    const gpu_device = sdl.SDL_CreateGPUDevice(sdl.SDL_GPU_SHADERFORMAT_MSL, builtin.mode == .Debug, null) orelse
+    const gpu_device = sdl.SDL_CreateGPUDevice(shader_format, builtin.mode == .Debug, null) orelse
         return error.Sdl;
     errdefer sdl.SDL_DestroyGPUDevice(gpu_device);
 
@@ -189,70 +213,6 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
 
     var spritesheet = try Spritesheet.init(io, gpa, gpu_device);
     errdefer spritesheet.deinit(gpu_device);
-
-    const file_buf = try gpa.alloc(u8, 1024);
-    defer gpa.free(file_buf);
-
-    const vert_shader_code = try std.Io.Dir.cwd().readFile(io, "res/shaders/vert.msl", file_buf);
-    const vert_shader = sdl.SDL_CreateGPUShader(gpu_device, &.{
-        .code_size = vert_shader_code.len,
-        .code = vert_shader_code.ptr,
-        .entrypoint = "VertMain",
-        .format = sdl.SDL_GPU_SHADERFORMAT_MSL,
-        .stage = sdl.SDL_GPU_SHADERSTAGE_VERTEX,
-        .num_uniform_buffers = 1,
-    }) orelse
-        return error.Sdl;
-    defer sdl.SDL_ReleaseGPUShader(gpu_device, vert_shader);
-
-    const frag_shader_code = try std.Io.Dir.cwd().readFile(io, "res/shaders/frag.msl", file_buf);
-    const frag_shader = sdl.SDL_CreateGPUShader(gpu_device, &.{
-        .code_size = frag_shader_code.len,
-        .code = frag_shader_code.ptr,
-        .entrypoint = "FragMain",
-        .format = sdl.SDL_GPU_SHADERFORMAT_MSL,
-        .stage = sdl.SDL_GPU_SHADERSTAGE_FRAGMENT,
-        .num_samplers = 1,
-        .num_uniform_buffers = 1,
-    }) orelse
-        return error.Sdl;
-    defer sdl.SDL_ReleaseGPUShader(gpu_device, frag_shader);
-
-    const gpu_pipeline = sdl.SDL_CreateGPUGraphicsPipeline(gpu_device, &.{
-        .vertex_shader = vert_shader,
-        .fragment_shader = frag_shader,
-        .vertex_input_state = .{
-            .num_vertex_buffers = 1,
-            .vertex_buffer_descriptions = &.{
-                .slot = 0,
-                .pitch = @sizeOf(Vtx),
-                .input_rate = sdl.SDL_GPU_VERTEXINPUTRATE_VERTEX,
-            },
-            .num_vertex_attributes = 2,
-            .vertex_attributes = &[_]sdl.SDL_GPUVertexAttribute{
-                .{ .buffer_slot = 0, .location = 0, .offset = 0, .format = sdl.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2 },
-                .{ .buffer_slot = 0, .location = 1, .offset = @sizeOf(f32) * 2, .format = sdl.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2 },
-            },
-        },
-        .primitive_type = sdl.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
-        .target_info = .{
-            .num_color_targets = 1,
-            .color_target_descriptions = &.{
-                .format = target_texture_format,
-                .blend_state = .{
-                    .enable_blend = true,
-                    .src_color_blendfactor = sdl.SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-                    .dst_color_blendfactor = sdl.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                    .color_blend_op = sdl.SDL_GPU_BLENDOP_ADD,
-                    .src_alpha_blendfactor = sdl.SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-                    .dst_alpha_blendfactor = sdl.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                    .alpha_blend_op = sdl.SDL_GPU_BLENDOP_ADD,
-                },
-            },
-        },
-    }) orelse
-        return error.Sdl;
-    errdefer sdl.SDL_ReleaseGPUGraphicsPipeline(gpu_device, gpu_pipeline);
 
     const gpu_sampler = sdl.SDL_CreateGPUSampler(gpu_device, &.{}) orelse
         return error.Sdl;
@@ -278,11 +238,80 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
         .spritesheet = spritesheet,
         .gpa = gpa,
         ._gpu_device = gpu_device,
-        ._gpu_pipeline = gpu_pipeline,
+        ._gpu_pipeline = null,
         ._gpu_sampler = gpu_sampler,
         ._gpu_buffer = gpu_buffer,
         ._gpu_transfer_buffer = gpu_transfer_buffer,
     };
+}
+
+/// Initializes the renderer's GPU pipeline with its current target texture
+/// format.
+fn initPipeline(self: *Renderer) !void {
+    var io_single_threaded: std.Io.Threaded = .init_single_threaded;
+    const io = io_single_threaded.io();
+
+    const file_buf = try self.gpa.alloc(u8, 1024);
+    defer self.gpa.free(file_buf);
+
+    const vert_shader_code = try std.Io.Dir.cwd().readFile(io, "res/shaders/vert." ++ shader_ext, file_buf);
+    const vert_shader = sdl.SDL_CreateGPUShader(self._gpu_device, &.{
+        .code_size = vert_shader_code.len,
+        .code = vert_shader_code.ptr,
+        .entrypoint = "VertMain",
+        .format = shader_format,
+        .stage = sdl.SDL_GPU_SHADERSTAGE_VERTEX,
+        .num_uniform_buffers = 1,
+    }) orelse
+        return error.Sdl;
+    defer sdl.SDL_ReleaseGPUShader(self._gpu_device, vert_shader);
+
+    const frag_shader_code = try std.Io.Dir.cwd().readFile(io, "res/shaders/frag." ++ shader_ext, file_buf);
+    const frag_shader = sdl.SDL_CreateGPUShader(self._gpu_device, &.{
+        .code_size = frag_shader_code.len,
+        .code = frag_shader_code.ptr,
+        .entrypoint = "FragMain",
+        .format = shader_format,
+        .stage = sdl.SDL_GPU_SHADERSTAGE_FRAGMENT,
+        .num_samplers = 1,
+        .num_uniform_buffers = 1,
+    }) orelse
+        return error.Sdl;
+    defer sdl.SDL_ReleaseGPUShader(self._gpu_device, frag_shader);
+
+    self._gpu_pipeline = sdl.SDL_CreateGPUGraphicsPipeline(self._gpu_device, &.{
+        .vertex_shader = vert_shader,
+        .fragment_shader = frag_shader,
+        .vertex_input_state = .{
+            .num_vertex_buffers = 1,
+            .vertex_buffer_descriptions = &.{
+                .slot = 0,
+                .pitch = @sizeOf(Vtx),
+                .input_rate = sdl.SDL_GPU_VERTEXINPUTRATE_VERTEX,
+            },
+            .num_vertex_attributes = 2,
+            .vertex_attributes = &[_]sdl.SDL_GPUVertexAttribute{
+                .{ .buffer_slot = 0, .location = 0, .offset = 0, .format = sdl.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2 },
+                .{ .buffer_slot = 0, .location = 1, .offset = @sizeOf(f32) * 2, .format = sdl.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2 },
+            },
+        },
+        .primitive_type = sdl.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .target_info = .{
+            .num_color_targets = 1,
+            .color_target_descriptions = &.{
+                .format = self._gpu_target_texture_format,
+                .blend_state = .{
+                    .enable_blend = true,
+                    .src_color_blendfactor = sdl.SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+                    .dst_color_blendfactor = sdl.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+                    .color_blend_op = sdl.SDL_GPU_BLENDOP_ADD,
+                    .src_alpha_blendfactor = sdl.SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+                    .dst_alpha_blendfactor = sdl.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+                    .alpha_blend_op = sdl.SDL_GPU_BLENDOP_ADD,
+                },
+            },
+        },
+    });
 }
 
 /// Frees the renderer.
@@ -594,7 +623,11 @@ pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
 pub fn claimWindow(self: *Renderer, window: *sdl.SDL_Window) !void {
     if (!sdl.SDL_ClaimWindowForGPUDevice(self._gpu_device, window))
         return error.Sdl;
-    std.debug.assert(sdl.SDL_GetGPUSwapchainTextureFormat(self._gpu_device, window) == target_texture_format);
+    if (self._gpu_target_texture_format == sdl.SDL_GPU_TEXTUREFORMAT_INVALID) {
+        self._gpu_target_texture_format = sdl.SDL_GetGPUSwapchainTextureFormat(self._gpu_device, window);
+        try self.initPipeline();
+    } else if (self._gpu_target_texture_format != sdl.SDL_GetGPUSwapchainTextureFormat(self._gpu_device, window))
+        return error.InvalidTargetTextureFormat;
 }
 
 /// Destroys the swapchain structure for the given window.

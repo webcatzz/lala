@@ -1,5 +1,6 @@
 .DS_Store
 /.zig-cache
-/res/shaders/*.msl
+/res/shaders/*
+!/res/shaders/shader.hlsl
 /res/spritesheet.aseprite
 /zig-out

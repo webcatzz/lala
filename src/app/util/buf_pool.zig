@@ -82,8 +82,13 @@ pub fn BufPool(comptime T: type) type {
             if (cap <= self.buf.len) return;
             const old_cap = self.buf.len;
             self.buf = try gpa.realloc(self.buf, cap);
-            if (populateBuf(self.buf[old_cap..cap]).first) |node|
-                self.free_list.prepend(node);
+
+            const head = populateBuf(self.buf[old_cap..cap]).first orelse return;
+            if (self.free_list.first) |first| {
+                var tail = first;
+                while (tail.next) |next| tail = next;
+                tail.next = head;
+            } else self.free_list.first = head;
         }
 
         /// Ensures the pool can hold at least `cap` additional items.
@@ -152,7 +157,7 @@ pub fn BufPool(comptime T: type) type {
 
             try pool.ensureTotalCapacity(std.testing.allocator, 8);
 
-            try std.testing.expect(!pool.isFull());
+            try std.testing.expectEqual(8, pool.free_list.len());
 
             pool.clearRetainingCapacity();
 

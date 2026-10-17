@@ -230,8 +230,11 @@ pub const frame = struct {
     pub const border = Renderer.Spritesheet.Sprite.frame.info().border;
 
     /// Draws the frame
-    pub fn draw(renderer: *Renderer, rect: math.Rect(f32)) !void {
+    pub fn draw(renderer: *Renderer, rect: math.Rect(f32), title: []const u8) !void {
         try renderer.drawSprite9Patch(.frame, rect);
+        try renderer.switchColor(.fromHexRgb(0x302c2e));
+        try renderer.print(title, .{ .x = rect.x + border.left, .y = rect.y + 2 });
+        try renderer.switchColor(.white);
     }
 };
 

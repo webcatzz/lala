@@ -127,7 +127,7 @@ pub fn draw(self: PianoRoll, renderer: *Renderer, ctx: Ctx) !void {
     const tick_offset: Track.Pattern.Tick = @trunc(self.scroll_amount.x / self.tick_width);
     const pitch_offset: u8 = @trunc(self.scroll_amount.y / pitch_height);
 
-    try Ui.frame.draw(renderer, self.rect);
+    try Ui.frame.draw(renderer, self.rect, "piano roll");
 
     const inner_rect = self.rect.grow(.{
         .left = -@as(f32, Ui.frame.border.left),

@@ -1,26 +1,26 @@
 const builtin = @import("builtin");
-const std = @import("std");
 const Io = std.Io;
+const std = @import("std");
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const sdl = b.addTranslateC(.{
-        .root_source_file = .{ .cwd_relative = "/opt/homebrew/opt/sdl3/include/SDL3/SDL.h" },
+        .root_source_file = b.path("vendor/SDL3/SDL.h"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
-    sdl.addIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/sdl3/include/" });
+    sdl.addIncludePath(b.path("vendor/"));
 
     const zlib = b.addTranslateC(.{
-        .root_source_file = .{ .cwd_relative = "/opt/homebrew/opt/zlib/include/zlib.h" },
+        .root_source_file = b.path("vendor/zlib/zlib.h"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
-    sdl.addIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/zlib/include/" });
+    zlib.addIncludePath(b.path("vendor/zlib/"));
 
     const mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
@@ -31,8 +31,6 @@ pub fn build(b: *std.Build) !void {
             .{ .name = "zlib", .module = zlib.createModule() },
         },
     });
-    mod.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/sdl3/lib/" });
-    mod.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/zlib/lib/" });
     mod.linkSystemLibrary("SDL3", .{});
     mod.linkSystemLibrary("z", .{});
 

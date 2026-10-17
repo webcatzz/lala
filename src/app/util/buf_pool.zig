@@ -71,7 +71,7 @@ pub fn BufPool(comptime T: type) type {
         pub fn destroy(self: *Self, index: usize) void {
             const slot = &self.buf[index];
             slot.* = .{ .node = .{} };
-            self.free_list.prepend(slot.node);
+            self.free_list.prepend(&slot.node);
         }
 
         /// Ensures the pool can hold at least `cap` items.
@@ -100,7 +100,7 @@ pub fn BufPool(comptime T: type) type {
 
         /// Clears the pool, invalidating any item IDs or pointers.
         pub fn clearRetainingCapacity(self: *Self) void {
-            populateBuf(self.buf);
+            self.free_list = populateBuf(self.buf);
         }
 
         /// Returns `true` if there are no unused slots in the pool.
@@ -136,27 +136,27 @@ pub fn BufPool(comptime T: type) type {
             var pool: BufPool(T) = .empty;
             defer pool.deinit(std.testing.allocator);
 
-            std.testing.expect(pool.isFull());
+            try std.testing.expect(pool.isFull());
 
             const item = try pool.create(std.testing.allocator);
             defer pool.destroy(item);
 
-            std.testing.expect(!pool.isFull());
+            try std.testing.expect(!pool.isFull());
         }
 
         test ensureTotalCapacity {
             var pool: BufPool(T) = .empty;
             defer pool.deinit(std.testing.allocator);
 
-            std.testing.expect(pool.isFull());
+            try std.testing.expect(pool.isFull());
 
             try pool.ensureTotalCapacity(std.testing.allocator, 8);
 
-            std.testing.expect(!pool.isFull());
+            try std.testing.expect(!pool.isFull());
 
             pool.clearRetainingCapacity();
 
-            std.testing.expect(!pool.isFull());
+            try std.testing.expect(!pool.isFull());
         }
 
         test populateBuf {
@@ -165,7 +165,7 @@ pub fn BufPool(comptime T: type) type {
 
             const list = populateBuf(buf);
 
-            std.testing.expectEqual(buf.len, list.len());
+            try std.testing.expectEqual(buf.len, list.len());
         }
     };
 }

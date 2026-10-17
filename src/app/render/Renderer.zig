@@ -313,7 +313,8 @@ fn initPipeline(self: *Renderer) !void {
                 },
             },
         },
-    });
+    }) orelse
+        return error.Sdl;
 }
 
 /// Frees the renderer.

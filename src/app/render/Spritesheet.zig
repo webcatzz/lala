@@ -350,7 +350,7 @@ pub fn init(io: std.Io, gpa: std.mem.Allocator, gpu_device: *sdl.SDL_GPUDevice) 
         decompressed_data.ptr,
         &decompressed_data_len,
         compressed_data.ptr,
-        compressed_data.len,
+        @intCast(compressed_data.len),
     )) {
         zlib.Z_OK => {},
         else => |zlib_return_code| {

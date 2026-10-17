@@ -115,8 +115,8 @@ fn iter(self: *App) !void {
 }
 
 /// Updates app state in response to user input.
-fn respond(self: *App, event: input.Event) !void {
-    return self.ctx.respond(event);
+fn respond(self: *App, comptime event_type: input.Type, event: input.Event(event_type)) !void {
+    return self.ctx.respond(event_type, event);
 }
 
 /// Synthesizes additional audio into the given stream.
@@ -155,36 +155,26 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io) !void {
             switch (sdl_event.type) {
                 sdl.SDL_EVENT_QUIT => break :main,
 
-                sdl.SDL_EVENT_KEY_DOWN, sdl.SDL_EVENT_KEY_UP => try app.respond(.{
-                    .button = .{
-                        .button = input.Button.fromKeyCode(@intCast(sdl_event.key.scancode)) orelse continue,
-                        .is_pressed = sdl_event.key.down,
-                    },
+                sdl.SDL_EVENT_KEY_DOWN, sdl.SDL_EVENT_KEY_UP => try app.respond(.button, .{
+                    .button = input.Button.fromKeyCode(@intCast(sdl_event.key.scancode)) orelse continue,
+                    .is_pressed = sdl_event.key.down,
                 }),
-                sdl.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl.SDL_EVENT_MOUSE_BUTTON_UP => try app.respond(.{
-                    .button = .{
-                        .button = input.Button.fromMouseCode(sdl_event.button.button) orelse continue,
-                        .is_pressed = sdl_event.button.down,
+                sdl.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl.SDL_EVENT_MOUSE_BUTTON_UP => try app.respond(.button, .{
+                    .button = input.Button.fromMouseCode(sdl_event.button.button) orelse continue,
+                    .is_pressed = sdl_event.button.down,
+                }),
+
+                sdl.SDL_EVENT_MOUSE_MOTION => try app.respond(.cursor, .{
+                    .pos = .{
+                        .x = sdl_event.motion.x / render_scale,
+                        .y = sdl_event.motion.y / render_scale,
                     },
                 }),
 
-                sdl.SDL_EVENT_MOUSE_MOTION => {
-                    try app.respond(.{
-                        .cursor = .{
-                            .pos = .{
-                                .x = sdl_event.motion.x / render_scale,
-                                .y = sdl_event.motion.y / render_scale,
-                            },
-                        },
-                    });
-                },
-
-                sdl.SDL_EVENT_MOUSE_WHEEL => try app.respond(.{
-                    .scroll = .{
-                        .amount = .{
-                            .x = sdl_event.wheel.x,
-                            .y = sdl_event.wheel.y,
-                        },
+                sdl.SDL_EVENT_MOUSE_WHEEL => try app.respond(.scroll, .{
+                    .amount = .{
+                        .x = sdl_event.wheel.x,
+                        .y = sdl_event.wheel.y,
                     },
                 }),
 

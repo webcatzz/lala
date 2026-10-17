@@ -37,11 +37,11 @@ pub const Pane = union(enum) {
     }
 
     /// Updates the pane in response to an event.
-    pub fn respond(self: *Pane, ctx: *Ctx, event: input.Event) error{OutOfMemory}!void {
+    pub fn respond(self: *Pane, ctx: *Ctx, comptime event_type: input.Type, event: input.Event(event_type)) error{OutOfMemory}!void {
         return switch (self.*) {
-            .piano_roll => |*piano_roll| piano_roll.respond(ctx, event),
-            .timeline => |*timeline| timeline.respond(ctx, event),
-            .split => |*split| split.respond(ctx, event),
+            .piano_roll => |*piano_roll| piano_roll.respond(ctx, event_type, event),
+            .timeline => |*timeline| timeline.respond(ctx, event_type, event),
+            .split => |*split| split.respond(ctx, event_type, event),
         };
     }
 
@@ -77,23 +77,23 @@ pub const Pane = union(enum) {
         active_pane_index: ?u1 = null,
 
         /// Routes the given event to one of the two child panes.
-        fn respond(self: *Split, ctx: *Ctx, event: input.Event) !void {
+        fn respond(self: *Split, ctx: *Ctx, comptime event_type: input.Type, event: input.Event(event_type)) !void {
             if (self.active_pane_index) |active_pane_index| {
                 // Routes events to the active pane, if one exists
                 try ctx.ui.pane(self.pane_ids[active_pane_index])
-                    .respond(ctx, event);
-                if (event == .button and !event.button.is_pressed)
+                    .respond(ctx, event_type, event);
+                if (event_type == .button and !event.is_pressed)
                     self.active_pane_index = null;
-            } else if (event == .button and event.button.is_pressed) {
+            } else if (event_type == .button and event.is_pressed) {
                 // Sets the active pane when a button press event is received
                 const active_pane_index = self.paneIndexAt(ctx.input.cursor_pos);
                 self.active_pane_index = active_pane_index;
                 try ctx.ui.pane(self.pane_ids[active_pane_index])
-                    .respond(ctx, event);
+                    .respond(ctx, event_type, event);
             } else {
                 // Otherwise, routes events to the pane under the cursor
                 try ctx.ui.pane(self.pane_ids[self.paneIndexAt(ctx.input.cursor_pos)])
-                    .respond(ctx, event);
+                    .respond(ctx, event_type, event);
             }
         }
 

@@ -47,8 +47,8 @@ const piano_key_black: math.Color(f32) = .black;
 const piano_key_border_color: math.Color(f32) = .fromValue(0.75);
 
 /// Updates the piano roll in response to user input.
-pub fn respond(self: *PianoRoll, ctx: *Ctx, event: input.Event) !void {
-    switch (event) {
+pub fn respond(self: *PianoRoll, ctx: *Ctx, comptime event_type: input.Type, event: input.Event(event_type)) !void {
+    switch (event_type) {
         .button => if (self.pattern_index) |pattern_index| {
             if (ctx.input.was_action_just_pressed(.piano_roll_place_note)) {
                 const tick_offset: Track.Pattern.Tick = @trunc(self.scroll_amount.x / self.tick_width);
@@ -86,8 +86,8 @@ pub fn respond(self: *PianoRoll, ctx: *Ctx, event: input.Event) !void {
             } else if (ctx.input.was_action_just_released(.piano_roll_place_note))
                 self.selection = .empty;
         },
-        .cursor => |cursor_event| if (self.pattern_index) |pattern_index| {
-            if (cursor_event.pos.x < self.rect.x + Ui.frame.border.left + piano_key_width) {
+        .cursor => if (self.pattern_index) |pattern_index| {
+            if (event.pos.x < self.rect.x + Ui.frame.border.left + piano_key_width) {
                 // Piano keyboard
                 // TODO
             } else {
@@ -97,17 +97,17 @@ pub fn respond(self: *PianoRoll, ctx: *Ctx, event: input.Event) !void {
                         .note_end => |i| {
                             const note = &ctx.track_edit.track.patterns[pattern_index].notes[i];
                             const tick_offset: Track.Pattern.Tick = @trunc(self.scroll_amount.x / self.tick_width);
-                            note.interval.last_tick = (@max(note.interval.first_tick, tick_offset + tickFromX(cursor_event.pos.x, self.rect.x + Ui.frame.border.left + piano_key_width, self.tick_width)) / self.tick_snap + 1) * self.tick_snap;
+                            note.interval.last_tick = (@max(note.interval.first_tick, tick_offset + tickFromX(event.pos.x, self.rect.x + Ui.frame.border.left + piano_key_width, self.tick_width)) / self.tick_snap + 1) * self.tick_snap;
                             ctx.queueRedraw();
                         },
                         else => {},
                     };
             }
         },
-        .scroll => |scroll_event| {
+        .scroll => {
             self.scroll_amount = .{
-                .x = @max(minXScroll(), @min(maxXScroll(self.tick_width), self.scroll_amount.x + scroll_event.amount.x * 6)),
-                .y = @max(minYScroll(self.rect.h), @min(maxYScroll(), self.scroll_amount.y + scroll_event.amount.y * 6)),
+                .x = @max(minXScroll(), @min(maxXScroll(self.tick_width), self.scroll_amount.x + event.amount.x * 6)),
+                .y = @max(minYScroll(self.rect.h), @min(maxYScroll(), self.scroll_amount.y + event.amount.y * 6)),
             };
             ctx.queueRedraw();
         },

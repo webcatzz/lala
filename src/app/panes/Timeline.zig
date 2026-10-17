@@ -39,7 +39,7 @@ const channel_height = 32;
 const channel_panel_width = 32;
 
 /// Updates the timeline in response to an event.
-pub fn respond(self: *Timeline, ctx: *Ctx, event: input.Event) !void {
+pub fn respond(self: *Timeline, ctx: *Ctx, comptime event_type: input.Type, event: input.Event(event_type)) !void {
     _ = self;
     _ = ctx;
     _ = event;

@@ -1,14 +1,40 @@
 const math = @import("util/math.zig");
 const std = @import("std");
 
-/// Describes input performed by the user.
-pub const Event = union(enum) {
+/// The type of an input event.
+pub const Type = enum {
     /// A button is pressed or released.
-    button: struct { button: Button, is_pressed: bool },
+    button,
     /// The cursor is moved to some position.
-    cursor: struct { pos: math.Vec2(f32) },
+    cursor,
     /// A wheel is scrolled by some amount.
-    scroll: struct { amount: math.Vec2(f32) },
+    scroll,
+};
+
+/// Describes input performed by the user.
+///
+/// This type is generic over `Type`. Input callbacks take the following form:
+///
+/// ```
+/// fn (..., comptime event_type: Type, event: Event(event_type)) ...
+/// ```
+///
+/// Since callbacks are required to take a `comptime` event type parameter,
+/// codegen produces an individual call chain for each event type, eliminating
+/// repeated branching at each call in the chain.
+pub fn Event(comptime t: Type) type {
+    return switch (t) {
+        .button => struct { button: Button, is_pressed: bool },
+        .cursor => struct { pos: math.Vec2(f32) },
+        .scroll => struct { amount: math.Vec2(f32) },
+    };
+}
+
+/// A union storing an `Event` of any type.
+const AnyEvent = union(Type) {
+    button: Event(.button),
+    cursor: Event(.cursor),
+    scroll: Event(.scroll),
 };
 
 /// A button the user might press.
@@ -256,7 +282,7 @@ pub const Action = enum {
 /// Records input state and maps it to input actions.
 pub const State = struct {
     /// The most recently recorded event.
-    last_event: Event = .{ .cursor = .{ .pos = .zero } },
+    last_event: AnyEvent = .{ .cursor = .{ .pos = .zero } },
     /// The most recently recorded cursor position.
     cursor_pos: math.Vec2(f32) = .zero,
     /// The set of buttons currently recorded as pressed.
@@ -289,14 +315,14 @@ pub const State = struct {
     };
 
     /// Records the given input event.
-    pub fn record(self: *State, event: Event) void {
-        self.last_event = event;
-        switch (event) {
-            .button => |button_event| if (button_event.is_pressed)
-                self.pressed_buttons.insert(button_event.button)
+    pub fn record(self: *State, comptime event_type: Type, event: Event(event_type)) void {
+        self.last_event = @unionInit(AnyEvent, @tagName(event_type), event);
+        switch (event_type) {
+            .button => if (event.is_pressed)
+                self.pressed_buttons.insert(event.button)
             else
-                self.pressed_buttons.remove(button_event.button),
-            .cursor => |cursor_event| self.cursor_pos = cursor_event.pos,
+                self.pressed_buttons.remove(event.button),
+            .cursor => self.cursor_pos = event.pos,
             else => {},
         }
     }

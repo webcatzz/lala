@@ -126,13 +126,13 @@ pub fn deinit(self: *Ctx) void {
 }
 
 /// Updates the context in response to an event.
-pub fn respond(self: *Ctx, event: input_sys.Event) !void {
-    self.input.record(event);
+pub fn respond(self: *Ctx, comptime event_type: input_sys.Type, event: input_sys.Event(event_type)) !void {
+    self.input.record(event_type, event);
 
     if (self.input.was_action_just_pressed(.editor_toggle_playback))
         self.is_playing = !self.is_playing
     else
-        try self.ui.pane(self.root_pane).respond(self, event);
+        try self.ui.pane(self.root_pane).respond(self, event_type, event);
 }
 
 /// Redraws the context.

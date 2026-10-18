@@ -8,14 +8,14 @@
 
 const math = @import("../util/math.zig");
 const Renderer = @import("Renderer.zig");
-const sdl = @import("sdl");
+const sokol = @import("sokol");
 const std = @import("std");
 const zlib = @import("zlib");
 
 const Spritesheet = @This();
 
-/// The SDL GPU texture used to store the spritesheet.
-_gpu_texture: *sdl.SDL_GPUTexture,
+/// The GPU texture used to store the spritesheet.
+_image: sokol.gfx.Image,
 
 /// The width of the spritesheet, in pixels.
 pub const width = 255;
@@ -254,7 +254,7 @@ pub const Sprite = enum(u8) {
 ///
 /// The spritesheet is owned by the caller and should be freed by calling
 /// `deinit`.
-pub fn init(io: std.Io, gpa: std.mem.Allocator, gpu_device: *sdl.SDL_GPUDevice) !Spritesheet {
+pub fn init(io: std.Io, gpa: std.mem.Allocator) !Spritesheet {
     const bytes_per_pixel = 4;
     const bytes_per_scanline = width * bytes_per_pixel + 1;
 
@@ -403,39 +403,14 @@ pub fn init(io: std.Io, gpa: std.mem.Allocator, gpu_device: *sdl.SDL_GPUDevice) 
         }
     }
 
-    // Creates GPU texture
-
-    const texture = sdl.SDL_CreateGPUTexture(gpu_device, &.{
-        .type = sdl.SDL_GPU_TEXTURETYPE_2D,
-        .format = sdl.SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
-        .usage = sdl.SDL_GPU_TEXTUREUSAGE_SAMPLER,
-        .width = width,
-        .height = height,
-        .layer_count_or_depth = 1,
-        .num_levels = 1,
-    }) orelse
-        return error.Sdl;
-    errdefer sdl.SDL_ReleaseGPUTexture(gpu_device, texture);
+    // Reformats image data
 
     const Pixel = extern struct { r: f32, g: f32, b: f32, a: f32 };
 
-    // Creates transfer buffer
+    const image_data = try gpa.alloc(Pixel, width * height);
+    defer gpa.free(image_data);
 
-    const transfer_buffer = sdl.SDL_CreateGPUTransferBuffer(gpu_device, &.{
-        .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = area * @sizeOf(Pixel),
-    }) orelse
-        return error.Sdl;
-    defer sdl.SDL_ReleaseGPUTransferBuffer(gpu_device, transfer_buffer);
-
-    // Maps image data into transfer buffer
-
-    const transfer_ptr: *[area]Pixel = @ptrCast(@alignCast(
-        sdl.SDL_MapGPUTransferBuffer(gpu_device, transfer_buffer, false) orelse
-            return error.Sdl,
-    ));
-
-    for (transfer_ptr, 0..) |*pixel, i|
+    for (image_data, 0..) |*pixel, i|
         pixel.* = .{
             .r = @as(f32, @floatFromInt(decompressed_data[i / width + i * 4 + 1])) / 255,
             .g = @as(f32, @floatFromInt(decompressed_data[i / width + i * 4 + 2])) / 255,
@@ -443,38 +418,32 @@ pub fn init(io: std.Io, gpa: std.mem.Allocator, gpu_device: *sdl.SDL_GPUDevice) 
             .a = @as(f32, @floatFromInt(decompressed_data[i / width + i * 4 + 4])) / 255,
         };
 
-    sdl.SDL_UnmapGPUTransferBuffer(gpu_device, transfer_buffer);
+    // Creates GPU texture
 
-    // Uploads image data to GPU
+    const image = sokol.gfx.makeImage(.{
+        .type = ._2D,
+        .width = width,
+        .height = height,
+        .pixel_format = .RGBA32F,
+        .usage = .{ .write_unsealed = true },
+    });
+    errdefer sokol.gfx.destroyImage(image);
 
-    const command_buffer = sdl.SDL_AcquireGPUCommandBuffer(gpu_device) orelse
-        return error.Sdl;
-    const copy_pass = sdl.SDL_BeginGPUCopyPass(command_buffer) orelse unreachable;
-
-    sdl.SDL_UploadToGPUTexture(copy_pass, &.{
-        .transfer_buffer = transfer_buffer,
-        .pixels_per_row = width,
-        .rows_per_layer = height,
-    }, &.{
-        .texture = texture,
-        .w = width,
-        .h = height,
-        .d = 1,
-    }, false);
-
-    sdl.SDL_EndGPUCopyPass(copy_pass);
-    if (!sdl.SDL_SubmitGPUCommandBuffer(command_buffer))
-        return error.Sdl;
+    sokol.gfx.writeImageUnsealed(.{
+        .dst = .{ .image = image },
+        .src = .{ .data = .{ .ptr = image_data.ptr } },
+    });
+    sokol.gfx.sealImage(image);
 
     // Returns spritesheet
 
-    return .{ ._gpu_texture = texture };
+    return .{ ._image = image };
 }
 
 /// Frees the spritesheet.
 ///
 /// The spritesheet should not be used after calling this function.
-pub fn deinit(self: *Spritesheet, gpu_device: *sdl.SDL_GPUDevice) void {
-    sdl.SDL_ReleaseGPUTexture(gpu_device, self._gpu_texture);
+pub fn deinit(self: *Spritesheet) void {
+    sokol.gfx.destroyImage(self._image);
     self.* = undefined;
 }

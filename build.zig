@@ -6,13 +6,15 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const sdl = b.addTranslateC(.{
-        .root_source_file = b.path("vendor/SDL3/SDL.h"),
+    const sokol_dep = b.dependency("sokol", .{
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
     });
-    sdl.addIncludePath(b.path("vendor/"));
+    const sokol = sokol_dep.module("sokol");
+
+    const sokol_shdc = @import("sokol").shdc;
+
+    sokol_shdc.createModule(b, "shader", sokol, .{});
 
     const zlib = b.addTranslateC(.{
         .root_source_file = b.path("vendor/zlib/zlib.h"),
@@ -27,11 +29,10 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "sdl", .module = sdl.createModule() },
+            .{ .name = "sokol", .module = sokol },
             .{ .name = "zlib", .module = zlib.createModule() },
         },
     });
-    mod.linkSystemLibrary("SDL3", .{});
     mod.linkSystemLibrary("z", .{});
 
     const exe = b.addExecutable(.{

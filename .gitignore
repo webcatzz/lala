@@ -4,3 +4,4 @@
 !/res/shaders/shader.hlsl
 /res/spritesheet.aseprite
 /zig-out
+/zig-pkg

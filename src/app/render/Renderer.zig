@@ -19,7 +19,7 @@
 
 const builtin = @import("builtin");
 const math = @import("../util/math.zig");
-const sdl = @import("sdl");
+const sokol = @import("sokol");
 const std = @import("std");
 
 const Renderer = @This();
@@ -33,22 +33,14 @@ spritesheet: Spritesheet,
 
 /// An allocator for commands and vertices.
 gpa: std.mem.Allocator,
-/// The SDL GPU context.
-_gpu_device: *sdl.SDL_GPUDevice,
-/// The SDL GPU graphics pipeline used to render.
-_gpu_pipeline: ?*sdl.SDL_GPUGraphicsPipeline,
-/// An SDL GPU sampler used to sample vertex textures.
-_gpu_sampler: *sdl.SDL_GPUSampler,
-/// A buffer used to upload vertices to the GPU.
-///
-/// The buffer's capacity is assumed to match that of `vtx_queue`.
-_gpu_transfer_buffer: *sdl.SDL_GPUTransferBuffer,
+/// The GPU graphics pipeline used to render.
+_pipeline: sokol.gfx.Pipeline = .{},
+/// A GPU sampler used to sample vertex textures.
+_sampler: sokol.gfx.Sampler,
 /// A buffer of vertices in GPU memory.
 ///
 /// The buffer's capacity is assumed to match that of `vtx_queue`.
-_gpu_buffer: *sdl.SDL_GPUBuffer,
-/// The texture format used by rendering targets.
-_gpu_target_texture_format: sdl.SDL_GPUTextureFormat = sdl.SDL_GPU_TEXTUREFORMAT_INVALID,
+_buffer: sokol.gfx.Buffer,
 
 pub const Spritesheet = @import("Spritesheet.zig");
 
@@ -200,10 +192,6 @@ pub const Vtx = extern struct {
 ///
 /// The renderer is owned by the caller and must be freed by calling `deinit`.
 pub fn init(gpa: std.mem.Allocator) !Renderer {
-    const gpu_device = sdl.SDL_CreateGPUDevice(shader_format, builtin.mode == .Debug, null) orelse
-        return error.Sdl;
-    errdefer sdl.SDL_DestroyGPUDevice(gpu_device);
-
     var cmd_queue: CmdQueue = .{ ._list = try .initCapacity(gpa, 512) };
     errdefer cmd_queue._list.deinit(gpa);
 
@@ -213,37 +201,45 @@ pub fn init(gpa: std.mem.Allocator) !Renderer {
     var io_single_threaded: std.Io.Threaded = .init_single_threaded;
     const io = io_single_threaded.io();
 
-    var spritesheet = try Spritesheet.init(io, gpa, gpu_device);
-    errdefer spritesheet.deinit(gpu_device);
+    var spritesheet = try Spritesheet.init(io, gpa);
+    errdefer spritesheet.deinit();
 
-    const gpu_sampler = sdl.SDL_CreateGPUSampler(gpu_device, &.{}) orelse
-        return error.Sdl;
-    errdefer sdl.SDL_ReleaseGPUSampler(gpu_device, gpu_sampler);
+    const sampler = sokol.gfx.makeSampler(.{});
+    errdefer sokol.gfx.destroySampler(sampler);
 
-    const gpu_buffer = sdl.SDL_CreateGPUBuffer(gpu_device, &.{
-        .usage = sdl.SDL_GPU_BUFFERUSAGE_VERTEX,
+    const buffer = sokol.gfx.makeBuffer(.{
+        .usage = .{ .vertex_buffer = true, .write_transient = true },
         .size = @intCast(vtx_queue.capacity * @sizeOf(Vtx)),
-    }) orelse
-        return error.Sdl;
-    errdefer sdl.SDL_ReleaseGPUBuffer(gpu_device, gpu_buffer);
+    });
+    errdefer sokol.gfx.destroyBuffer(buffer);
 
-    const gpu_transfer_buffer = sdl.SDL_CreateGPUTransferBuffer(gpu_device, &.{
-        .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = @intCast(vtx_queue.capacity * @sizeOf(Vtx)),
-    }) orelse
-        return error.Sdl;
-    errdefer sdl.SDL_ReleaseGPUTransferBuffer(gpu_device, gpu_transfer_buffer);
+    const vert_shader_code = try std.Io.Dir.cwd().readFileAlloc(io, "res/shaders/vert." ++ shader_ext, gpa, .unlimited);
+    defer gpa.free(vert_shader_code);
+
+    const frag_shader_code = try std.Io.Dir.cwd().readFileAlloc(io, "res/shaders/frag." ++ shader_ext, gpa, .unlimited);
+    defer gpa.free(frag_shader_code);
+
+    const shader = sokol.gfx.makeShader(.{
+        .vertex_func = .{
+            .source = vert_shader_code,
+            .entry = "VertMain",
+        },
+    });
+    defer sokol.gfx.destroyShader(shader);
+
+    const pipeline = sokol.gfx.makePipeline(.{
+        .shader = shader,
+    });
+    errdefer sokol.gfx.destroyPipeline(pipeline);
 
     return .{
         .vtx_queue = vtx_queue,
         .cmd_queue = cmd_queue,
         .spritesheet = spritesheet,
         .gpa = gpa,
-        ._gpu_device = gpu_device,
-        ._gpu_pipeline = null,
-        ._gpu_sampler = gpu_sampler,
-        ._gpu_buffer = gpu_buffer,
-        ._gpu_transfer_buffer = gpu_transfer_buffer,
+        ._pipeline = pipeline,
+        ._sampler = sampler,
+        ._buffer = buffer,
     };
 }
 
@@ -324,11 +320,9 @@ pub fn deinit(self: *Renderer) void {
     self.cmd_queue._list.deinit(self.gpa);
     self.vtx_queue.deinit(self.gpa);
     self.spritesheet.deinit(self._gpu_device);
-    sdl.SDL_ReleaseGPUTransferBuffer(self._gpu_device, self._gpu_transfer_buffer);
-    sdl.SDL_ReleaseGPUBuffer(self._gpu_device, self._gpu_buffer);
-    sdl.SDL_ReleaseGPUSampler(self._gpu_device, self._gpu_sampler);
-    sdl.SDL_ReleaseGPUGraphicsPipeline(self._gpu_device, self._gpu_pipeline);
-    sdl.SDL_DestroyGPUDevice(self._gpu_device);
+    sokol.gfx.destroyBuffer(self._buffer);
+    sokol.gfx.destroySampler(self._sampler);
+    sokol.gfx.destroyPipeline(self._pipeline);
     self.* = undefined;
 }
 
@@ -547,15 +541,16 @@ pub fn print(self: *Renderer, text: []const u8, pos: math.Vec2(f32)) !void {
 /// After calling this function, the renderer's queues will be empty and ready to draw anew.
 ///
 /// Assumes the window was previously claimed by the renderer by calling `claimWindow`.
-pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
-    const command_buffer = sdl.SDL_AcquireGPUCommandBuffer(self._gpu_device) orelse
-        return error.Sdl;
-    defer _ = sdl.SDL_SubmitGPUCommandBuffer(command_buffer);
+pub fn render(self: *Renderer) !void {
+    sokol.gfx.writeBufferTransient(.{
+        .src = .{ .data = .{ .ptr = self.vtx_queue.items.ptr } },
+        .dst = .{ .buffer = self._buffer },
+        .size = @as(u32, @intCast(self.vtx_queue.items.len)) * @sizeOf(Vtx),
+    });
 
-    var maybe_swapchain_texture: ?*sdl.SDL_GPUTexture = undefined;
-    if (!sdl.SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window, &maybe_swapchain_texture, null, null))
-        return error.Sdl;
-    const swapchain_texture = maybe_swapchain_texture orelse return;
+    sokol.gfx.beginPass(.{
+        .swapchain = sokol.glue.swapchain(),
+    });
 
     {
         const copy_pass = sdl.SDL_BeginGPUCopyPass(command_buffer) orelse unreachable;
@@ -602,7 +597,7 @@ pub fn render(self: *Renderer, window: *sdl.SDL_Window) !void {
         for (self.cmd_queue._list.items) |cmd| {
             switch (cmd) {
                 .draw_vertices => |vtx_count| {
-                    sdl.SDL_DrawGPUPrimitives(render_pass, vtx_count, 1, vtx_index, 0);
+                    sokol.gfx.draw(vtx_index, vtx_count, 1);
                     vtx_index += vtx_count;
                 },
                 .switch_color => |color| sdl.SDL_PushGPUFragmentUniformData(command_buffer, 0, &[4]f32{

@@ -1,8 +1,8 @@
 //! A UI system.
 //!
 //! Each UI element in the system has two components: a rectangle which it
-//! occupies and its behavioral logic. UI elements are uniquely identified by
-//! `Id`s.
+//! occupies and its behavioral logic. Each element is uniquely identified by an
+//! `Id`.
 
 const Ctx = @import("ctx/Ctx.zig");
 const input = @import("input.zig");

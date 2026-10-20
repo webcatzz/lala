@@ -200,7 +200,7 @@ pub const Vtx = extern struct {
 ///
 /// The renderer is owned by the caller and must be freed by calling `deinit`.
 pub fn init(gpa: std.mem.Allocator) !Renderer {
-    const gpu_device = sdl.SDL_CreateGPUDevice(shader_format, builtin.mode == .Debug, null) orelse
+    const gpu_device = sdl.SDL_CreateGPUDevice(shader_format, builtin.mode == .debug, null) orelse
         return error.Sdl;
     errdefer sdl.SDL_DestroyGPUDevice(gpu_device);
 

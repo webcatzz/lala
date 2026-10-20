@@ -190,6 +190,9 @@ pub const Button = enum {
     /// The middle mouse button.
     mouse_middle,
 
+    /// The integer type used to represent buttons.
+    const BackingInt = @typeInfo(Button).@"enum".tag_type;
+
     /// Returns the button corresponding to the given key code, if any.
     ///
     /// Based off the [USB HID usage table].
@@ -198,10 +201,10 @@ pub const Button = enum {
     ///     https://www.usb.org/sites/default/files/hut1_7.pdf#page=90
     pub fn fromKeyCode(code: u16) ?Button {
         return switch (code) {
-            0x04...0x31 => @enumFromInt(code - 0x04 + @intFromEnum(Button.key_a)),
-            0x33...0x39 => @enumFromInt(code - 0x33 + @intFromEnum(Button.key_semicolon)),
-            0x4f...0x52 => @enumFromInt(code - 0x4f + @intFromEnum(Button.key_right)),
-            0xe0...0xe7 => @enumFromInt(code - 0xe0 + @intFromEnum(Button.key_lctrl)),
+            0x04...0x31 => @fromBackingInt(@as(BackingInt, @truncate(code - 0x04)) + @backingInt(Button.key_a)),
+            0x33...0x39 => @fromBackingInt(@as(BackingInt, @truncate(code - 0x33)) + @backingInt(Button.key_semicolon)),
+            0x4f...0x52 => @fromBackingInt(@as(BackingInt, @truncate(code - 0x4f)) + @backingInt(Button.key_right)),
+            0xe0...0xe7 => @fromBackingInt(@as(BackingInt, @truncate(code - 0xe0)) + @backingInt(Button.key_lctrl)),
             else => null,
         };
     }
@@ -215,7 +218,7 @@ pub const Button = enum {
     ///     https://www.usb.org/sites/default/files/hut1_7.pdf#page=111
     pub fn fromMouseCode(code: u16) ?Button {
         return switch (code) {
-            0x01...0x03 => @enumFromInt(code - 0x01 + @intFromEnum(Button.mouse_left)),
+            0x01...0x03 => @fromBackingInt(@as(BackingInt, @truncate(code - 0x01)) + @backingInt(Button.mouse_left)),
             else => null,
         };
     }
@@ -241,7 +244,7 @@ pub const ModButtons = packed struct {
             return if (self == .ignore)
                 true
             else
-                @intFromEnum(self) & ((@as(u2, @intFromBool(l)) << 1) | @intFromBool(r)) != 0;
+                @backingInt(self) & ((@as(u2, @intFromBool(l)) << 1) | @intFromBool(r)) != 0;
         }
     };
 };

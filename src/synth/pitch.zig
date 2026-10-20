@@ -131,7 +131,7 @@ pub fn octave(pitch: u8) u8 {
 
 /// Returns the pitch class the pitch belongs to.
 pub fn class(pitch: u8) enum { c, c_sharp, d, d_sharp, e, f, f_sharp, g, g_sharp, a, a_sharp, b } {
-    return @enumFromInt(pitch % 12);
+    return @fromBackingInt(@truncate(pitch % 12));
 }
 
 /// Returns the color of the piano key corresponding to the given pitch.

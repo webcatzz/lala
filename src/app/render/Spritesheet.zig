@@ -242,7 +242,7 @@ pub const Sprite = enum(u8) {
     /// Returns the sprite corresponding to the given character in the "pebble"
     /// font, if any.
     pub fn pebble(char: u8) ?Sprite {
-        return @enumFromInt(pebble_base + switch (char) {
+        return @fromBackingInt(pebble_base + switch (char) {
             '!'...'`', '{'...'~' => char - 32,
             'a'...'z' => char - 64,
             else => return null,

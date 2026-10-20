@@ -464,7 +464,7 @@ pub const Axis = enum {
 
     /// Returns the perpendicular axis.
     pub fn perp(self: Axis) Axis {
-        return @enumFromInt((@intFromEnum(self) + 1) % 1);
+        return @fromBackingInt((@backingInt(self) + 1) % 1);
     }
 };
 

@@ -9,8 +9,6 @@ const Ui = @import("../Ui.zig");
 
 const PianoRoll = @This();
 
-/// The rectangle occupied by the piano roll.
-rect: math.Rect(f32) = .zero,
 /// The amount scrolled, relative to the initial position.
 scroll_amount: math.Vec2(f32) = .zero,
 
@@ -47,14 +45,15 @@ const piano_key_black: math.Color(f32) = .black;
 const piano_key_border_color: math.Color(f32) = .fromValue(0.75);
 
 /// Updates the piano roll in response to user input.
-pub fn respond(self: *PianoRoll, ctx: *Ctx, comptime event_type: input.Type, event: input.Event(event_type)) !void {
+pub fn respond(self: *PianoRoll, ctx: *Ctx, id: Ui.Id, comptime event_type: input.Type, event: input.Event(event_type)) !void {
+    const rect = ctx.ui.getRect(id);
     switch (event_type) {
         .button => if (self.pattern_index) |pattern_index| {
             if (ctx.input.was_action_just_pressed(.piano_roll_place_note)) {
                 const tick_offset: Track.Pattern.Tick = @trunc(self.scroll_amount.x / self.tick_width);
                 const pitch_offset: u8 = @trunc(self.scroll_amount.y / pitch_height);
-                const cursor_tick = tick_offset + tickFromX(ctx.input.cursor_pos.x, self.rect.x + Ui.frame.border.left + piano_key_width, self.tick_width);
-                const cursor_pitch = pitch_offset -| pitchFromY(ctx.input.cursor_pos.y, self.rect.y + Ui.frame.border.top);
+                const cursor_tick = tick_offset + tickFromX(ctx.input.cursor_pos.x, rect.x + Ui.frame.border.left + piano_key_width, self.tick_width);
+                const cursor_pitch = pitch_offset -| pitchFromY(ctx.input.cursor_pos.y, rect.y + Ui.frame.border.top);
 
                 var notes_during_tick = ctx.track_edit.track.patterns[pattern_index]
                     .notesDuringTick(cursor_tick);
@@ -87,7 +86,7 @@ pub fn respond(self: *PianoRoll, ctx: *Ctx, comptime event_type: input.Type, eve
                 self.selection = .empty;
         },
         .cursor => if (self.pattern_index) |pattern_index| {
-            if (event.pos.x < self.rect.x + Ui.frame.border.left + piano_key_width) {
+            if (event.pos.x < rect.x + Ui.frame.border.left + piano_key_width) {
                 // Piano keyboard
                 // TODO
             } else {
@@ -97,7 +96,7 @@ pub fn respond(self: *PianoRoll, ctx: *Ctx, comptime event_type: input.Type, eve
                         .note_end => |i| {
                             const note = &ctx.track_edit.track.patterns[pattern_index].notes[i];
                             const tick_offset: Track.Pattern.Tick = @trunc(self.scroll_amount.x / self.tick_width);
-                            note.interval.last_tick = (@max(note.interval.first_tick, tick_offset + tickFromX(event.pos.x, self.rect.x + Ui.frame.border.left + piano_key_width, self.tick_width)) / self.tick_snap + 1) * self.tick_snap;
+                            note.interval.last_tick = (@max(note.interval.first_tick, tick_offset + tickFromX(event.pos.x, rect.x + Ui.frame.border.left + piano_key_width, self.tick_width)) / self.tick_snap + 1) * self.tick_snap;
                             ctx.queueRedraw();
                         },
                         else => {},
@@ -107,29 +106,28 @@ pub fn respond(self: *PianoRoll, ctx: *Ctx, comptime event_type: input.Type, eve
         .scroll => {
             self.scroll_amount = .{
                 .x = @max(minXScroll(), @min(maxXScroll(self.tick_width), self.scroll_amount.x + event.amount.x * 6)),
-                .y = @max(minYScroll(self.rect.h), @min(maxYScroll(), self.scroll_amount.y + event.amount.y * 6)),
+                .y = @max(minYScroll(rect.h), @min(maxYScroll(), self.scroll_amount.y + event.amount.y * 6)),
             };
             ctx.queueRedraw();
         },
     }
 }
 
-pub fn layOut(self: *PianoRoll, r: math.Rect(f32)) void {
-    self.rect = r;
+pub fn layOut(self: *PianoRoll, _: *Ui, rect: math.Rect(f32)) void {
     self.scroll_amount = .{
         .x = @max(minXScroll(), @min(maxXScroll(self.tick_width), self.scroll_amount.x)),
-        .y = @max(minYScroll(self.rect.h), @min(maxYScroll(), self.scroll_amount.y)),
+        .y = @max(minYScroll(rect.h), @min(maxYScroll(), self.scroll_amount.y)),
     };
 }
 
 /// Draws the piano roll.
-pub fn draw(self: PianoRoll, renderer: *Renderer, ctx: Ctx) !void {
+pub fn draw(self: PianoRoll, renderer: *Renderer, ctx: Ctx, rect: math.Rect(f32)) Renderer.DrawError!void {
     const tick_offset: Track.Pattern.Tick = @trunc(self.scroll_amount.x / self.tick_width);
     const pitch_offset: u8 = @trunc(self.scroll_amount.y / pitch_height);
 
-    try Ui.frame.draw(renderer, self.rect, "piano roll");
+    try Ui.frame.draw(renderer, rect, "piano roll");
 
-    const inner_rect = self.rect.grow(.{
+    const inner_rect = rect.grow(.{
         .left = -@as(f32, Ui.frame.border.left),
         .right = -@as(f32, Ui.frame.border.right),
         .top = -@as(f32, Ui.frame.border.top),
@@ -159,7 +157,7 @@ pub fn draw(self: PianoRoll, renderer: *Renderer, ctx: Ctx) !void {
         },
     );
 
-    const y_scroll = 1 - (self.scroll_amount.y - minYScroll(self.rect.h)) / (maxYScroll() - minYScroll(self.rect.h));
+    const y_scroll = 1 - (self.scroll_amount.y - minYScroll(rect.h)) / (maxYScroll() - minYScroll(rect.h));
     try Ui.scrollbar.drawVertical(renderer, y_scroll, .{
         .x = inner_rect.endX() - Ui.scrollbar.width,
         .y = inner_rect.y,

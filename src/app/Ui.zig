@@ -1,229 +1,336 @@
-//! Abstract editor UI.
+//! A UI system.
 //!
-//! Manages a tree of "panes", which may each hold variable content.
+//! Each UI element in the system has two components: a rectangle which it
+//! occupies and its behavioral logic. UI elements are uniquely identified by
+//! `Id`s.
 
-const App = @import("App.zig");
-const builtin = @import("builtin");
 const Ctx = @import("ctx/Ctx.zig");
 const input = @import("input.zig");
 const math = @import("util/math.zig");
-const PianoRoll = @import("panes/PianoRoll.zig");
 const Renderer = @import("render/Renderer.zig");
-const sparse_list = @import("util/sparse_list.zig");
 const std = @import("std");
-const Timeline = @import("panes/Timeline.zig");
 
 const Ui = @This();
 
-/// The panes in the system. Indexed with `Pane.Id`.
-panes: sparse_list.SparseList(Pane),
+/// Rectangle components for each element.
+rects: [*]math.Rect(f32),
+/// Logic components for each element.
+///
+/// Unused slots are populated with nodes of the free list.
+logic: [*]LogicSlot,
+/// The total number of elements the system can hold.
+cap: usize,
+/// A singly-linked list tracking unused IDs in the system, stored in unused
+/// slots in `logic`.
+free_list: std.SinglyLinkedList,
+/// A mapping from positions to UI elements.
+map: Map,
 
-/// A node in the UI tree.
-pub const Pane = union(enum) {
-    piano_roll: PianoRoll,
-    timeline: Timeline,
-    split: Split,
+/// An ID for an element.
+///
+/// One sentinel ID is reserved for invalid IDs.
+pub const Id = struct {
+    _index: BackingInt,
 
-    /// A unique identifier for a pane.
-    pub const Id = struct { _index: u8 };
-
-    /// Returns the rectangle occupied by the pane.
-    pub fn rect(self: Pane) math.Rect(f32) {
-        return switch (self) {
-            .piano_roll => |piano_roll| piano_roll.rect,
-            .timeline => |timeline| timeline.rect,
-            .split => |split| split.rect,
-        };
-    }
-
-    /// Updates the pane in response to an event.
-    pub fn respond(self: *Pane, ctx: *Ctx, comptime event_type: input.Type, event: input.Event(event_type)) error{OutOfMemory}!void {
-        return switch (self.*) {
-            .piano_roll => |*piano_roll| piano_roll.respond(ctx, event_type, event),
-            .timeline => |*timeline| timeline.respond(ctx, event_type, event),
-            .split => |*split| split.respond(ctx, event_type, event),
-        };
-    }
-
-    /// Lays out the pane and its contents within the given rectangle.
-    pub fn layOut(self: *Pane, ui: *Ui, r: math.Rect(f32)) void {
-        switch (self.*) {
-            .piano_roll => |*piano_roll| piano_roll.layOut(r),
-            .timeline => |*timeline| timeline.rect = r,
-            .split => |*split| split.layOut(ui, r),
-        }
-    }
-
-    /// Draws the pane.
-    pub fn draw(self: Pane, renderer: *Renderer, ctx: Ctx) Renderer.DrawError!void {
-        try switch (self) {
-            .piano_roll => |piano_roll| piano_roll.draw(renderer, ctx),
-            .timeline => |timeline| timeline.draw(renderer, ctx),
-            .split => |split| split.draw(renderer, ctx),
-        };
-    }
-
-    /// A pane which holds two other panes, arranged along the given axis.
-    pub const Split = struct {
-        /// The rectangle occupied by the pane.
-        rect: math.Rect(f32) = .zero,
-        /// The two child panes.
-        pane_ids: [2]Pane.Id,
-        /// The axis along which child panes are arranged.
-        axis: math.Axis,
-        /// The fraction of space occupied by the first pane, in the range \[0, 1].
-        split: f32,
-        /// The index of the pane with mouse focus, if any.
-        active_pane_index: ?u1 = null,
-
-        /// Routes the given event to one of the two child panes.
-        fn respond(self: *Split, ctx: *Ctx, comptime event_type: input.Type, event: input.Event(event_type)) !void {
-            if (self.active_pane_index) |active_pane_index| {
-                // Routes events to the active pane, if one exists
-                try ctx.ui.pane(self.pane_ids[active_pane_index])
-                    .respond(ctx, event_type, event);
-                if (event_type == .button and !event.is_pressed)
-                    self.active_pane_index = null;
-            } else if (event_type == .button and event.is_pressed) {
-                // Sets the active pane when a button press event is received
-                const active_pane_index = self.paneIndexAt(ctx.input.cursor_pos);
-                self.active_pane_index = active_pane_index;
-                try ctx.ui.pane(self.pane_ids[active_pane_index])
-                    .respond(ctx, event_type, event);
-            } else {
-                // Otherwise, routes events to the pane under the cursor
-                try ctx.ui.pane(self.pane_ids[self.paneIndexAt(ctx.input.cursor_pos)])
-                    .respond(ctx, event_type, event);
-            }
-        }
-
-        /// Lays out the pane and its contents within the given rectangle.
-        fn layOut(self: *Split, ui: *Ui, r: math.Rect(f32)) void {
-            self.rect = r;
-
-            switch (self.axis) {
-                .x => {
-                    const split = self.split * self.rect.w;
-                    ui.pane(self.pane_ids[0]).layOut(ui, .{
-                        .y = self.rect.x,
-                        .x = self.rect.y,
-                        .h = split,
-                        .w = self.rect.h,
-                    });
-                    ui.pane(self.pane_ids[1]).layOut(ui, .{
-                        .y = self.rect.x + split,
-                        .x = self.rect.y,
-                        .h = self.rect.w - split,
-                        .w = self.rect.h,
-                    });
-                },
-                .y => {
-                    const split = self.split * self.rect.h;
-                    ui.pane(self.pane_ids[0]).layOut(ui, .{
-                        .x = self.rect.x,
-                        .y = self.rect.y,
-                        .w = self.rect.w,
-                        .h = split,
-                    });
-                    ui.pane(self.pane_ids[1]).layOut(ui, .{
-                        .x = self.rect.x,
-                        .y = self.rect.y + split,
-                        .w = self.rect.w,
-                        .h = self.rect.h - split,
-                    });
-                },
-            }
-        }
-
-        /// Draws the two child panes.
-        fn draw(self: Split, renderer: *Renderer, ctx: Ctx) !void {
-            inline for (self.pane_ids) |id|
-                try ctx.ui.paneConst(id).draw(renderer, ctx);
-        }
-
-        /// Sets the fraction of space occupied by the first pane.
-        fn setSplit(self: *Split, ui: *Ui, split: f32) void {
-            self.split = @min(0, @max(self.rect.sizeAlong(self.axis), split));
-            self.layOut(ui, self.rect);
-        }
-
-        /// Returns the index of the pane at the given coordinates.
-        fn paneIndexAt(self: Split, pos: math.Vec2(f32)) u1 {
-            return switch (self.axis) {
-                .x => @intFromBool(pos.x > self.rect.x + self.split * self.rect.w),
-                .y => @intFromBool(pos.y > self.rect.y + self.split * self.rect.h),
-            };
-        }
-    };
+    /// The integer type used to represent IDs.
+    const BackingInt = u16;
+    /// The invalid ID.
+    const invalid: Id = .{ ._index = std.math.maxInt(BackingInt) };
 };
 
-/// Returns a new UI system.
-///
-/// The system is owned by the caller and should be freed by calling `deinit`.
-pub fn init(gpa: std.mem.Allocator) !Ui {
-    const panes: sparse_list.SparseList(Pane) = try .initCapacity(gpa, 8);
-    errdefer panes.deinit(gpa);
+/// A slot storing either a logic interface or a node of the free list.
+const LogicSlot = union { logic: Logic, node: std.SinglyLinkedList.Node };
 
+/// An interface defining the behavior of an element.
+pub const Logic = struct {
+    ptr: *anyopaque,
+    vtable: *const VTable,
+
+    pub const VTable = struct {
+        draw: *const fn (*const anyopaque, *Renderer, Ctx, math.Rect(f32)) Renderer.DrawError!void,
+        lay_out: *const fn (*anyopaque, *Ui, math.Rect(f32)) void,
+        respond_button: *const fn (*anyopaque, *Ctx, Id, input.Event(.button)) error{OutOfMemory}!void,
+        respond_cursor: *const fn (*anyopaque, *Ctx, Id, input.Event(.cursor)) error{OutOfMemory}!void,
+        respond_scroll: *const fn (*anyopaque, *Ctx, Id, input.Event(.scroll)) error{OutOfMemory}!void,
+    };
+
+    /// A no-op logic interface.
+    pub const noop: Logic = .construct(void, undefined);
+
+    /// Constructs a logic interface for the given type.
+    ///
+    /// The interface will hook into the given methods, if present:
+    ///
+    /// ```
+    /// T.draw(*const T, *Renderer, Ctx, Id)
+    /// T.layOut(*T, *Ui, Id)
+    /// T.respond(*T, *Ctx, Id, comptime input.Type, input.Event)
+    /// ```
+    pub fn construct(comptime T: type, ptr: *T) Logic {
+        const impl = struct {
+            fn draw(p: *const anyopaque, renderer: *Renderer, ctx: Ctx, rect: math.Rect(f32)) !void {
+                if (@hasDecl(T, "draw"))
+                    try @as(*const T, @ptrCast(@alignCast(p))).draw(renderer, ctx, rect);
+            }
+
+            fn layOut(p: *anyopaque, ui: *Ui, rect: math.Rect(f32)) void {
+                if (@hasDecl(T, "layOut"))
+                    @as(*T, @ptrCast(@alignCast(p))).layOut(ui, rect);
+            }
+
+            fn respondButton(p: *anyopaque, ctx: *Ctx, id: Id, event: input.Event(.button)) !void {
+                if (@hasDecl(T, "respond"))
+                    try @as(*T, @ptrCast(@alignCast(p))).respond(ctx, id, .button, event);
+            }
+
+            fn respondCursor(p: *anyopaque, ctx: *Ctx, id: Id, event: input.Event(.cursor)) !void {
+                if (@hasDecl(T, "respond"))
+                    try @as(*T, @ptrCast(@alignCast(p))).respond(ctx, id, .cursor, event);
+            }
+
+            fn respondScroll(p: *anyopaque, ctx: *Ctx, id: Id, event: input.Event(.scroll)) !void {
+                if (@hasDecl(T, "respond"))
+                    try @as(*T, @ptrCast(@alignCast(p))).respond(ctx, id, .scroll, event);
+            }
+
+            const vtable: VTable = .{
+                .draw = @This().draw,
+                .lay_out = @This().layOut,
+                .respond_button = respondButton,
+                .respond_cursor = respondCursor,
+                .respond_scroll = respondScroll,
+            };
+        };
+
+        return .{ .ptr = ptr, .vtable = &impl.vtable };
+    }
+
+    /// Updates the element in response to the given event.
+    pub fn respond(self: Logic, ctx: *Ctx, id: Id, comptime event_type: input.Type, event: input.Event(event_type)) !void {
+        try (switch (event_type) {
+            .button => self.vtable.respond_button,
+            .cursor => self.vtable.respond_cursor,
+            .scroll => self.vtable.respond_scroll,
+        })(self.ptr, ctx, id, event);
+    }
+
+    /// Lays out the element and its children in the given rectangle.
+    pub fn layOut(self: Logic, ui: *Ui, rect: math.Rect(f32)) void {
+        self.vtable.lay_out(self.ptr, ui, rect);
+    }
+
+    /// Draws the element and its children in the given rectangle.
+    pub fn draw(self: Logic, renderer: *Renderer, ctx: Ctx, rect: math.Rect(f32)) !void {
+        try self.vtable.draw(self.ptr, renderer, ctx, rect);
+    }
+};
+
+pub fn init(gpa: std.mem.Allocator) !Ui {
     return .{
-        .panes = panes,
+        .rects = undefined,
+        .logic = undefined,
+        .cap = 0,
+        .free_list = .{ .first = null },
+        .map = try .init(gpa),
     };
 }
 
 /// Frees the UI system.
 ///
-/// In `Debug` or `ReleaseSafe` mode, logs an error for each pane left
-/// initialized.
-///
-/// The system should not be used after calling this function.
+/// The system should not be used after calling this function. Calling this
+/// function will clean up any inserted items.
 pub fn deinit(self: *Ui, gpa: std.mem.Allocator) void {
-    if (builtin.mode == .Debug or builtin.mode == .ReleaseSafe)
-        for (0..self.panes.items.len) |i|
-            if (self.panes.isInit(i))
-                std.log.scoped(.ui).err("pane #{} leaked", .{i});
-
-    self.panes.deinit(gpa);
+    gpa.free(self.rects[0..self.cap]);
+    gpa.free(self.logic[0..self.cap]);
+    self.map.deinit(gpa);
     self.* = undefined;
 }
 
-/// Creates a new pane and returns its ID.
-///
-/// The pane is owned by the caller and should be freed by calling `deinitPane`.
-/// Note that `deinitPane` does not deinitialize the pane contents, which need to
-/// be deinitialized separately.
-pub fn initPane(self: *Ui, gpa: std.mem.Allocator, p: Pane) !Pane.Id {
-    return .{ ._index = @intCast(try self.panes.insert(gpa, p)) };
+fn setCapacity(self: *Ui, gpa: std.mem.Allocator, new_cap: usize) !void {
+    const old_cap = self.cap;
+    self.rects = (try gpa.realloc(self.rects[0..self.cap], new_cap)).ptr;
+    self.logic = (try gpa.realloc(self.logic[0..self.cap], new_cap)).ptr;
+    self.cap = new_cap;
+
+    const new_nodes = sewBuf(self.logic[old_cap..new_cap]);
+    if (self.free_list.first) |head| {
+        var tail = head;
+        while (tail.next) |next| tail = next;
+        tail.next = new_nodes.first;
+    } else self.free_list = new_nodes;
 }
 
-/// Frees the pane with the given ID.
-///
-/// Note that this function does not deinitialize the pane's contents, which
-/// should be deinitialized separately.
-///
-/// Assumes the ID is valid. The ID is invalidated after calling this function
-/// and should not be used again.
-pub fn deinitPane(self: *Ui, id: Pane.Id) void {
-    self.panes.unset(id._index);
+/// Populates `buf` with a singly-linked list and returns the list.
+fn sewBuf(buf: []LogicSlot) std.SinglyLinkedList {
+    var head: std.SinglyLinkedList.Node = .{ .next = null };
+    var prev_node = &head;
+    for (buf) |*slot| {
+        slot.* = .{ .node = .{ .next = null } };
+        prev_node.next = &slot.node;
+        prev_node = &slot.node;
+    }
+
+    return .{ .first = head.next };
 }
 
-/// Returns a pointer to the pane with the given ID.
+/// Inserts a new element with the given rectangle and logic into the system and
+/// returns its ID.
 ///
-/// Avoid storing the pointer; the UI system may move its resources at any time.
-///
-/// Assumes the ID is valid.
-pub fn pane(self: *Ui, id: Pane.Id) *Pane {
-    return &self.panes.items[id._index];
+/// Reallocates memory if necessary.
+pub fn insert(self: *Ui, gpa: std.mem.Allocator, rect: math.Rect(f32), logic: Logic) !Id {
+    if (self.free_list.first == null)
+        try self.setCapacity(gpa, @max(self.cap, 4) * 2);
+
+    const i = @as(*LogicSlot, @fieldParentPtr("node", self.free_list.popFirst() orelse unreachable)) - self.logic;
+    self.rects[i] = rect;
+    self.logic[i] = .{ .logic = logic };
+    return .{ ._index = @intCast(i) };
 }
 
-/// Returns a constant pointer to the pane with the given ID.
+/// Removes the element with the given ID from the system.
 ///
-/// Avoid storing the pointer; the UI system may move its resources at any time.
-///
-/// Assumes the ID is valid.
-pub fn paneConst(self: *const Ui, id: Pane.Id) *const Pane {
-    return &self.panes.items[id._index];
+/// The ID should not be used after calling this function.
+pub fn remove(self: *Ui, id: Id) void {
+    self.rects[id._index] = .{ .node = .{ .next = null } };
+    self.logic[id._index] = undefined;
+    self.free_list.prepend(&self.rects[id._index].node);
 }
+
+/// Returns the rectangle occupied by the element with the given ID.
+pub fn getRect(self: Ui, id: Id) math.Rect(f32) {
+    return self.rects[id._index];
+}
+
+/// Returns the logic interface of the element with the given ID.
+pub fn getLogic(self: Ui, id: Id) Logic {
+    return self.logic[id._index].logic;
+}
+
+test "basic" {
+    var ui: Ui = try .init(std.testing.allocator);
+    defer ui.deinit(std.testing.allocator);
+
+    const item_1 = try ui.insert(std.testing.allocator, .zero, .noop);
+    const item_2 = try ui.insert(std.testing.allocator, .zero, .noop);
+
+    ui.remove(item_1);
+    ui.remove(item_2);
+}
+
+// Map
+
+const Map = struct {
+    pixel_colors: []Id,
+    width: u16,
+
+    fn init(gpa: std.mem.Allocator) !Map {
+        const App = @import("App.zig");
+
+        return .{
+            .pixel_colors = try gpa.alloc(Id, App.width * App.height),
+            .width = App.width,
+        };
+    }
+
+    fn deinit(self: *Map, gpa: std.mem.Allocator) void {
+        gpa.free(self.pixel_colors);
+        self.* = undefined;
+    }
+
+    fn record(self: *Map, id: Id, rect: math.Rect(f32)) void {
+        const rect_x1: u16 = @intFromFloat(rect.x);
+        const rect_y1: u16 = @intFromFloat(rect.y);
+        const rect_x2: u16 = @intFromFloat(rect.endX());
+        const rect_y2: u16 = @intFromFloat(rect.endY());
+        for (rect_y1..rect_y2) |y|
+            @memset(self.pixel_colors[rect_x1 + y * self.width .. rect_x2 + y * self.width], id);
+    }
+};
 
 // Common UI elements
+
+pub const Split = struct {
+    /// The two child panes.
+    children: [2]Id,
+    /// The axis along which child panes are arranged.
+    axis: math.Axis,
+    /// The fraction of space occupied by the first pane, in the range \[0, 1].
+    split: f32,
+    /// The index of the pane with mouse focus, if any.
+    active_child_index: ?u1 = null,
+
+    fn respond(self: *Split, ctx: *Ctx, id: Id, comptime event_type: input.Type, event: input.Event(event_type)) !void {
+        const child_id = if (self.active_child_index) |active_child_index| blk: {
+            // Routes events to the active pane, if one exists
+            const child_index = active_child_index;
+            if (event_type == .button and !event.is_pressed)
+                self.active_child_index = null;
+            break :blk self.children[child_index];
+        } else if (event_type == .button and event.is_pressed) blk: {
+            // Sets the active pane when a button press event is received
+            const active_child_index = pickChild(ctx.ui.getRect(id), self.axis, self.split, ctx.input.cursor_pos);
+            self.active_child_index = active_child_index;
+            break :blk self.children[active_child_index];
+        } else blk: {
+            // Otherwise, routes events to the pane under the cursor
+            break :blk self.children[pickChild(ctx.ui.getRect(id), self.axis, self.split, ctx.input.cursor_pos)];
+        };
+
+        try ctx.ui.getLogic(child_id).respond(ctx, child_id, event_type, event);
+    }
+
+    fn pickChild(
+        rect: math.Rect(f32),
+        axis: math.Axis,
+        split: f32,
+        pos: math.Vec2(f32),
+    ) u1 {
+        return switch (axis) {
+            .x => @intFromBool(pos.x > rect.x + split * rect.w),
+            .y => @intFromBool(pos.y > rect.y + split * rect.h),
+        };
+    }
+
+    fn layOut(self: *Split, ui: *Ui, rect: math.Rect(f32)) void {
+        switch (self.axis) {
+            .x => {
+                const split = self.split * rect.w;
+                ui.getLogic(self.children[0]).layOut(ui, .{
+                    .y = rect.x,
+                    .x = rect.y,
+                    .h = split,
+                    .w = rect.h,
+                });
+                ui.getLogic(self.children[1]).layOut(ui, .{
+                    .y = rect.x + split,
+                    .x = rect.y,
+                    .h = rect.w - split,
+                    .w = rect.h,
+                });
+            },
+            .y => {
+                const split = self.split * rect.h;
+                ui.getLogic(self.children[0]).layOut(ui, .{
+                    .x = rect.x,
+                    .y = rect.y,
+                    .w = rect.w,
+                    .h = split,
+                });
+                ui.getLogic(self.children[1]).layOut(ui, .{
+                    .x = rect.x,
+                    .y = rect.y + split,
+                    .w = rect.w,
+                    .h = rect.h - split,
+                });
+            },
+        }
+    }
+
+    fn draw(self: Split, renderer: *Renderer, ctx: Ctx, _: math.Rect(f32)) !void {
+        inline for (self.children) |child|
+            try ctx.ui.getLogic(child).draw(renderer, ctx, ctx.ui.getRect(child));
+    }
+};
 
 pub const frame = struct {
     /// The widths of the borders of the frame.

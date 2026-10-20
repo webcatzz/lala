@@ -17,6 +17,10 @@ _audio_device: sdl.SDL_AudioDeviceID,
 /// The audio stream used to play back audio.
 _audio_stream: *sdl.SDL_AudioStream,
 
+/// The initial width of the application view.
+pub const width = 260;
+/// The initial height of the application view.
+pub const height = 200;
 /// The scale applied when rendering.
 pub const render_scale = 3;
 
@@ -24,7 +28,7 @@ pub const render_scale = 3;
 ///
 /// The app is owned by the caller and should be freed by calling `deinit`.
 fn init(gpa: std.mem.Allocator, io: std.Io) !App {
-    const window = sdl.SDL_CreateWindow("lala", 800, 600, sdl.SDL_WINDOW_HIGH_PIXEL_DENSITY) orelse
+    const window = sdl.SDL_CreateWindow("lala", width * render_scale, height * render_scale, sdl.SDL_WINDOW_HIGH_PIXEL_DENSITY) orelse
         return error.Sdl;
     errdefer sdl.SDL_DestroyWindow(window);
 

@@ -39,17 +39,18 @@ const channel_height = 32;
 const channel_panel_width = 32;
 
 /// Updates the timeline in response to an event.
-pub fn respond(self: *Timeline, ctx: *Ctx, comptime event_type: input.Type, event: input.Event(event_type)) !void {
+pub fn respond(self: *Timeline, ctx: *Ctx, id: Ui.Id, comptime event_type: input.Type, event: input.Event(event_type)) !void {
     _ = self;
     _ = ctx;
+    _ = id;
     _ = event;
 }
 
 /// Draws the timeline.
-pub fn draw(self: Timeline, renderer: *Renderer, ctx: Ctx) !void {
+pub fn draw(self: Timeline, renderer: *Renderer, ctx: Ctx, rect: math.Rect(f32)) Renderer.DrawError!void {
     try Ui.frame.draw(renderer, self.rect, "timeline");
 
-    const inner_rect = self.rect.grow(.{
+    const inner_rect = rect.grow(.{
         .left = -@as(f32, Ui.frame.border.left),
         .right = -@as(f32, Ui.frame.border.right),
         .top = -@as(f32, Ui.frame.border.top),

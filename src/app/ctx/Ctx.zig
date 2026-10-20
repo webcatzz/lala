@@ -34,12 +34,12 @@ cfg: Config,
 
 /// The UI system.
 ui: Ui,
-/// The ID of the root pane.
-root_pane: Ui.Pane.Id,
-/// The ID of the piano roll pane.
-piano_roll: Ui.Pane.Id,
-/// The ID of the timeline pane.
-timeline: Ui.Pane.Id,
+root: *Ui.Split,
+root_id: Ui.Id,
+piano_roll: *PianoRoll,
+piano_roll_id: Ui.Id,
+timeline: *Timeline,
+timeline_id: Ui.Id,
 /// If `true`, UI should redraw.
 should_redraw: bool = true,
 
@@ -74,22 +74,29 @@ pub fn init(gpa: std.mem.Allocator, io: std.Io) !Ctx {
     var ui: Ui = try .init(gpa);
     errdefer ui.deinit(gpa);
 
-    const piano_roll = try ui.initPane(gpa, .{ .piano_roll = .{
-        .pattern_index = pattern_index,
-    } });
-    errdefer ui.deinitPane(piano_roll);
+    const piano_roll = try gpa.create(PianoRoll);
+    errdefer gpa.destroy(piano_roll);
+    piano_roll.* = .{ .pattern_index = 0 };
+    const piano_roll_id = try ui.insert(gpa, undefined, .construct(PianoRoll, piano_roll));
 
-    const timeline = try ui.initPane(gpa, .{ .timeline = .{} });
-    errdefer ui.deinitPane(timeline);
+    const timeline = try gpa.create(Timeline);
+    errdefer gpa.destroy(timeline);
+    timeline.* = .{};
+    const timeline_id = try ui.insert(gpa, undefined, .construct(Timeline, timeline));
 
-    const root_pane = try ui.initPane(gpa, .{ .split = .{
-        .pane_ids = .{ piano_roll, timeline },
-        .axis = .y,
+    const root = try gpa.create(Ui.Split);
+    errdefer gpa.destroy(root);
+    root.* = .{
+        .children = .{ piano_roll_id, timeline_id },
+        .axis = .x,
         .split = 0.67,
-    } });
-    errdefer ui.deinitPane(root_pane);
-
-    ui.pane(root_pane).layOut(&ui, .{ .w = 800 / App.render_scale, .h = 600 / App.render_scale });
+    };
+    const root_id = try ui.insert(gpa, .{
+        .w = App.width,
+        .h = App.height,
+    }, .construct(Ui.Split, root));
+    ui.getLogic(root_id).layOut(&ui, ui.getRect(root_id));
+    std.log.debug("r {} p {} t {}", .{ ui.getRect(root_id), ui.getRect(piano_roll_id), ui.getRect(timeline_id) });
 
     return .{
         .track_edit = track_edit,
@@ -98,9 +105,12 @@ pub fn init(gpa: std.mem.Allocator, io: std.Io) !Ctx {
         .action_bus = action_bus,
         .cfg = .{},
         .ui = ui,
-        .root_pane = root_pane,
+        .root = root,
+        .root_id = root_id,
         .piano_roll = piano_roll,
+        .piano_roll_id = piano_roll_id,
         .timeline = timeline,
+        .timeline_id = timeline_id,
         .gpa = gpa,
         .io = io,
     };
@@ -117,10 +127,10 @@ pub fn deinit(self: *Ctx) void {
 
     self.action_bus.deinit(self.gpa);
 
-    self.ui.deinitPane(self.piano_roll);
-    self.ui.deinitPane(self.timeline);
-    self.ui.deinitPane(self.root_pane);
     self.ui.deinit(self.gpa);
+    self.gpa.destroy(self.root);
+    self.gpa.destroy(self.piano_roll);
+    self.gpa.destroy(self.timeline);
 
     self.* = undefined;
 }
@@ -132,12 +142,14 @@ pub fn respond(self: *Ctx, comptime event_type: input_sys.Type, event: input_sys
     if (self.input.was_action_just_pressed(.editor_toggle_playback))
         self.is_playing = !self.is_playing
     else
-        try self.ui.pane(self.root_pane).respond(self, event_type, event);
+        try self.ui.getLogic(self.root_id)
+            .respond(self, self.root_id, event_type, event);
 }
 
 /// Redraws the context.
 pub fn redraw(self: Ctx, renderer: *Renderer) !void {
-    try self.ui.paneConst(self.root_pane).draw(renderer, self);
+    try self.ui.getLogic(self.root_id)
+        .draw(renderer, self, self.ui.getRect(self.root_id));
 }
 
 /// Requests that the context be redrawn at a later time.

@@ -7,8 +7,6 @@ const Ui = @import("../Ui.zig");
 
 const Timeline = @This();
 
-/// The rectangle occupied by the timeline.
-rect: math.Rect(f32) = .zero,
 /// The amount scrolled, relative to the initial position.
 scroll_amount: math.Vec2(f32) = .zero,
 
@@ -48,7 +46,7 @@ pub fn respond(self: *Timeline, ctx: *Ctx, id: Ui.Id, comptime event_type: input
 
 /// Draws the timeline.
 pub fn draw(self: Timeline, renderer: *Renderer, ctx: Ctx, rect: math.Rect(f32)) Renderer.DrawError!void {
-    try Ui.frame.draw(renderer, self.rect, "timeline");
+    try Ui.frame.draw(renderer, rect, "timeline");
 
     const inner_rect = rect.grow(.{
         .left = -@as(f32, Ui.frame.border.left),
@@ -57,8 +55,10 @@ pub fn draw(self: Timeline, renderer: *Renderer, ctx: Ctx, rect: math.Rect(f32))
         .bottom = -@as(f32, Ui.frame.border.bottom),
     });
 
-    for (0..@trunc(inner_rect.h / channel_height)) |i| {
-        const channel_y = yFromChannelIndex(@intCast(i));
+    const min_channel_index: u8 = @trunc(self.scroll_amount.y / channel_height);
+    const max_channel_index: u8 = @min(min_channel_index + @as(u8, @trunc(inner_rect.h / channel_height)), @as(u8, @intCast(ctx.track_edit.track.channels.len)));
+    for (min_channel_index..max_channel_index) |channel_index| {
+        const channel_y: f32 = @as(u8, @truncate(channel_index)) * channel_height;
 
         try drawPanel(
             renderer,
@@ -72,7 +72,7 @@ pub fn draw(self: Timeline, renderer: *Renderer, ctx: Ctx, rect: math.Rect(f32))
                 .w = inner_rect.w - channel_panel_width,
                 .h = channel_height,
             },
-            ctx.track_edit.track.channels[i].sections,
+            ctx.track_edit.track.channels[channel_index].sections,
             ctx.track_edit.track.patterns,
             self.tick_width,
         );

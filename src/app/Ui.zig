@@ -201,9 +201,21 @@ pub fn getRect(self: Ui, id: Id) math.Rect(f32) {
     return self.rects[id._index];
 }
 
+/// Sets the rectangle occupied by the element with the given ID.
+pub fn setRect(self: Ui, id: Id, rect: math.Rect(f32)) void {
+    self.rects[id._index] = rect;
+}
+
 /// Returns the logic interface of the element with the given ID.
 pub fn getLogic(self: Ui, id: Id) Logic {
     return self.logic[id._index].logic;
+}
+
+/// Lays out the element with the given ID in the given rectangle.
+///
+/// Note that this function does not modify the rectangle occupied by the element.
+pub fn layOut(self: *Ui, id: Id, rect: math.Rect(f32)) void {
+    self.getLogic(id).layOut(self, rect);
 }
 
 test "basic" {
@@ -295,28 +307,28 @@ pub const Split = struct {
         switch (self.axis) {
             .x => {
                 const split = self.split * rect.w;
-                ui.getLogic(self.children[0]).layOut(ui, .{
-                    .y = rect.x,
-                    .x = rect.y,
+                ui.setRect(self.children[0], .{
+                    .x = rect.x,
+                    .y = rect.y,
                     .h = split,
                     .w = rect.h,
                 });
-                ui.getLogic(self.children[1]).layOut(ui, .{
-                    .y = rect.x + split,
-                    .x = rect.y,
+                ui.setRect(self.children[1], .{
+                    .x = rect.x + split,
+                    .y = rect.y,
                     .h = rect.w - split,
                     .w = rect.h,
                 });
             },
             .y => {
                 const split = self.split * rect.h;
-                ui.getLogic(self.children[0]).layOut(ui, .{
+                ui.setRect(self.children[0], .{
                     .x = rect.x,
                     .y = rect.y,
                     .w = rect.w,
                     .h = split,
                 });
-                ui.getLogic(self.children[1]).layOut(ui, .{
+                ui.setRect(self.children[1], .{
                     .x = rect.x,
                     .y = rect.y + split,
                     .w = rect.w,
@@ -324,11 +336,14 @@ pub const Split = struct {
                 });
             },
         }
+
+        inline for (self.children) |child_id|
+            ui.getLogic(child_id).layOut(ui, ui.getRect(child_id));
     }
 
     fn draw(self: Split, renderer: *Renderer, ctx: Ctx, _: math.Rect(f32)) !void {
-        inline for (self.children) |child|
-            try ctx.ui.getLogic(child).draw(renderer, ctx, ctx.ui.getRect(child));
+        inline for (self.children) |child_id|
+            try ctx.ui.getLogic(child_id).draw(renderer, ctx, ctx.ui.getRect(child_id));
     }
 };
 

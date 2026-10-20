@@ -86,17 +86,17 @@ pub fn init(gpa: std.mem.Allocator, io: std.Io) !Ctx {
 
     const root = try gpa.create(Ui.Split);
     errdefer gpa.destroy(root);
-    root.* = .{
-        .children = .{ piano_roll_id, timeline_id },
-        .axis = .x,
-        .split = 0.67,
-    };
     const root_id = try ui.insert(gpa, .{
         .w = App.width,
         .h = App.height,
     }, .construct(Ui.Split, root));
-    ui.getLogic(root_id).layOut(&ui, ui.getRect(root_id));
-    std.log.debug("r {} p {} t {}", .{ ui.getRect(root_id), ui.getRect(piano_roll_id), ui.getRect(timeline_id) });
+
+    root.* = .{
+        .children = .{ piano_roll_id, timeline_id },
+        .axis = .y,
+        .split = 0.67,
+    };
+    ui.layOut(root_id, ui.getRect(root_id));
 
     return .{
         .track_edit = track_edit,

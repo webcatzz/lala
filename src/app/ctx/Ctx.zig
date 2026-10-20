@@ -96,7 +96,7 @@ pub fn init(gpa: std.mem.Allocator, io: std.Io) !Ctx {
         .axis = .y,
         .split = 0.67,
     };
-    ui.layOut(root_id, ui.getRect(root_id));
+    ui.layOut(root_id);
 
     return .{
         .track_edit = track_edit,
@@ -142,14 +142,12 @@ pub fn respond(self: *Ctx, comptime event_type: input_sys.Type, event: input_sys
     if (self.input.was_action_just_pressed(.editor_toggle_playback))
         self.is_playing = !self.is_playing
     else
-        try self.ui.getLogic(self.root_id)
-            .respond(self, self.root_id, event_type, event);
+        try self.ui.respond(self.root_id, self, event_type, event);
 }
 
 /// Redraws the context.
 pub fn redraw(self: Ctx, renderer: *Renderer) !void {
-    try self.ui.getLogic(self.root_id)
-        .draw(renderer, self, self.ui.getRect(self.root_id));
+    try self.ui.draw(self.root_id, renderer, self);
 }
 
 /// Requests that the context be redrawn at a later time.

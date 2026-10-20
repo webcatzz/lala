@@ -211,11 +211,19 @@ pub fn getLogic(self: Ui, id: Id) Logic {
     return self.logic[id._index].logic;
 }
 
-/// Lays out the element with the given ID in the given rectangle.
-///
-/// Note that this function does not modify the rectangle occupied by the element.
-pub fn layOut(self: *Ui, id: Id, rect: math.Rect(f32)) void {
-    self.getLogic(id).layOut(self, rect);
+/// Updates the element in response to the given event.
+pub fn respond(self: *Ui, id: Id, ctx: *Ctx, comptime event_type: input.Type, event: input.Event(event_type)) !void {
+    try self.getLogic(id).respond(ctx, id, event_type, event);
+}
+
+/// Lays out the element with the given ID.
+pub fn layOut(self: *Ui, id: Id) void {
+    self.getLogic(id).layOut(self, self.getRect(id));
+}
+
+/// Draws the element with the given ID.
+pub fn draw(self: Ui, id: Id, renderer: *Renderer, ctx: Ctx) !void {
+    try self.getLogic(id).draw(renderer, ctx, self.getRect(id));
 }
 
 test "basic" {
@@ -288,7 +296,7 @@ pub const Split = struct {
             break :blk self.children[pickChild(ctx.ui.getRect(id), self.axis, self.split, ctx.input.cursor_pos)];
         };
 
-        try ctx.ui.getLogic(child_id).respond(ctx, child_id, event_type, event);
+        try ctx.ui.respond(child_id, ctx, event_type, event);
     }
 
     fn pickChild(
@@ -338,12 +346,12 @@ pub const Split = struct {
         }
 
         inline for (self.children) |child_id|
-            ui.getLogic(child_id).layOut(ui, ui.getRect(child_id));
+            ui.layOut(child_id);
     }
 
     fn draw(self: Split, renderer: *Renderer, ctx: Ctx, _: math.Rect(f32)) !void {
         inline for (self.children) |child_id|
-            try ctx.ui.getLogic(child_id).draw(renderer, ctx, ctx.ui.getRect(child_id));
+            try ctx.ui.draw(child_id, renderer, ctx);
     }
 };
 

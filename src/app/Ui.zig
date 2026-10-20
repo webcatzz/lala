@@ -279,7 +279,7 @@ pub const Split = struct {
     /// The index of the pane with mouse focus, if any.
     active_child_index: ?u1 = null,
 
-    fn respond(self: *Split, ctx: *Ctx, id: Id, comptime event_type: input.Type, event: input.Event(event_type)) !void {
+    pub fn respond(self: *Split, ctx: *Ctx, id: Id, comptime event_type: input.Type, event: input.Event(event_type)) !void {
         const child_id = if (self.active_child_index) |active_child_index| blk: {
             // Routes events to the active pane, if one exists
             const child_index = active_child_index;
@@ -299,19 +299,7 @@ pub const Split = struct {
         try ctx.ui.respond(child_id, ctx, event_type, event);
     }
 
-    fn pickChild(
-        rect: math.Rect(f32),
-        axis: math.Axis,
-        split: f32,
-        pos: math.Vec2(f32),
-    ) u1 {
-        return switch (axis) {
-            .x => @intFromBool(pos.x > rect.x + split * rect.w),
-            .y => @intFromBool(pos.y > rect.y + split * rect.h),
-        };
-    }
-
-    fn layOut(self: *Split, ui: *Ui, rect: math.Rect(f32)) void {
+    pub fn layOut(self: *Split, ui: *Ui, rect: math.Rect(f32)) void {
         switch (self.axis) {
             .x => {
                 const split = self.split * rect.w;
@@ -349,9 +337,21 @@ pub const Split = struct {
             ui.layOut(child_id);
     }
 
-    fn draw(self: Split, renderer: *Renderer, ctx: Ctx, _: math.Rect(f32)) !void {
+    pub fn draw(self: Split, renderer: *Renderer, ctx: Ctx, _: math.Rect(f32)) !void {
         inline for (self.children) |child_id|
             try ctx.ui.draw(child_id, renderer, ctx);
+    }
+
+    fn pickChild(
+        rect: math.Rect(f32),
+        axis: math.Axis,
+        split: f32,
+        pos: math.Vec2(f32),
+    ) u1 {
+        return switch (axis) {
+            .x => @intFromBool(pos.x > rect.x + split * rect.w),
+            .y => @intFromBool(pos.y > rect.y + split * rect.h),
+        };
     }
 };
 

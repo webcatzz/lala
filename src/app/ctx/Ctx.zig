@@ -146,7 +146,7 @@ pub fn respond(self: *Ctx, comptime event_type: input_sys.Type, event: input_sys
 }
 
 /// Redraws the context.
-pub fn redraw(self: Ctx, renderer: *Renderer) !void {
+pub fn draw(self: Ctx, renderer: *Renderer) !void {
     try self.ui.draw(self.root_id, renderer, self);
 }
 

@@ -112,7 +112,7 @@ fn iter(self: *App) !void {
             1 / @as(f32, @floatFromInt(h)) * scale * render_scale,
         );
 
-        try self.ctx.redraw(&self._renderer);
+        try self.ctx.draw(&self._renderer);
 
         try self._renderer.render(self._window);
     }
